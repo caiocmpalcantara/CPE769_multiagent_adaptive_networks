@@ -1,4 +1,4 @@
-classdef Agent
+classdef Agent < handle
     properties
         y_hat               % Variável de observação que se estima a partir de H
         H_hat               % Variável de pesos que estima
@@ -22,12 +22,13 @@ classdef Agent
             check_y_dim = @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1) == 0);
 
             default_n_win = 20;
-            check_n_win = isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1) == 0);
+            check_n_win = @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1) == 0);
 
             % default_x_ini = zeros(default_x_dim, 1);
             % check_x_ini = @(x) isnumeric(x);
 
-            default_agent_tech = Lms('n_win', default_n_win);
+            % default_agent_tech = Lms('x_dim', default_x_dim, 'y_dim', default_y_dim, 'n_win', default_n_win);
+            default_agent_tech = Lms();
             check_agent_tech = @(x) isa(x, "Agent_technique");
 
             addOptional(p, 'x_dim', default_x_dim, check_x_dim);
@@ -55,12 +56,20 @@ classdef Agent
                 % end
                 obj.agent_technique = p.Results.agent_tech;     % Faz com o número de amostras que enviar para função apply
 
-                if ~any(strcmp('x_dim', p.UsingDefaults)) && ~any(strcmp('agent_tech', p.UsingDefaults)) && (obj.x_dim ~= obj.agent_technique.n_win)
+                % Caso o usuario tenha colocado 'x_dim' e 'agent_tech', verifica as dimensoes
+                if ~any(strcmp('x_dim', p.UsingDefaults)) && ~any(strcmp('agent_tech', p.UsingDefaults)) && (obj.x_dim ~= obj.agent_technique.x_dim)
+                    error('The "x_dim" of "agent_tech" must be equal to the "x_dim" declared.');
 
-                elseif ~any(strcmp('y_dim', p.UsingDefaults)) && ~any(strcmp('agent_tech', p.UsingDefaults))
+                % Caso o usuario tenha colocado 'y_dim' e 'agent_tech', verifica as dimensoes
+                elseif ~any(strcmp('y_dim', p.UsingDefaults)) && ~any(strcmp('agent_tech', p.UsingDefaults)) && (obj.y_dim ~= obj.agent_technique.y_dim)
+                    error('The "y_dim" of "agent_tech" must be equal to the "y_dim" declared.');
 
-                elseif ~any(strcmp('n_win', p.UsingDefaults)) && ~any(strcmp('agent_tech', p.UsingDefaults))
-                    
+                % Caso o usuario tenha colocado 'n_win' e 'agent_tech', verifica as dimensoes
+                elseif ~any(strcmp('n_win', p.UsingDefaults)) && ~any(strcmp('agent_tech', p.UsingDefaults)) && (obj.y_dim ~= obj.agent_technique.n_win)
+                    error('The "n_win" of "agent_tech" must be equal to the "n_win" declared.');
+
+                elseif any(strcmp('agent_tech', p.UsingDefaults)) && (~any(strcmp('x_dim', p.UsingDefaults)) || ~any(strcmp('y_dim', p.UsingDefaults))  || ~any(strcmp('n_win', p.UsingDefaults)))
+                    obj.agent_technique = Lms('x_dim', obj.x_dim, 'y_dim', obj.y_dim, 'n_win', obj.n_window);
                 end
                 
                 obj.H_hat = obj.agent_technique.get_H();
@@ -76,25 +85,34 @@ classdef Agent
         function obj = self_learning_step(obj, st, obs) % x, d from Diniz, Adaptive Filtering
             obj.obs_buffer = obj.update_buffer(obj.obs_buffer, obs);
             obj.state_buffer = obj.update_buffer(obj.state_buffer, st);
-
             obj.y_hat = obj.agent_technique.apply(obj.obs_buffer, obj.state_buffer);
             obj.H_hat = obj.agent_technique.get_H();
         end
         
         function obj = social_learning_step(obj, new_H_hat)
             obj.H_hat = new_H_hat;  % Agente sem vontade própria
+            obj.agent_technique.update_H(obj.H_hat);
         end
         
         function y_hat = get_y_hat(obj)
+            obj.update_y_hat();
             y_hat = obj.y_hat;
+        end
+
+        function obj = update_y_hat(obj)
+            obj.y_hat = obj.agent_technique.get_y_hat(obj.state_buffer(:,1));
+        end
+
+        function H_hat = get_H_hat(obj)
+            H_hat = obj.H_hat;
         end
         
     end
     methods (Static)
         function buf = update_buffer(buffer, new)   % Primitives
-            buffer(:,2:end) = buffer(:,1:end-1);
-            buffer(:,1) = new;
             buf = buffer;
+            buf(:,2:end) = buf(:,1:end-1);
+            buf(:,1) = new;
         end
     end
 end

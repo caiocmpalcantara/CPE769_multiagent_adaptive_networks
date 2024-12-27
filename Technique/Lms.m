@@ -3,8 +3,6 @@ classdef Lms < Agent_technique
         R_hat               % estimado a partir do buffer de estados
         p_hat               % estimado a partir do buffer de estados e de observações
         H                   % matrix de pesos atual
-        x_dim               % dimensão do estado
-        y_dim               % dimensão da observação
         n_win               % tamanho da janela de observação
         mu                  % passo adaptativo
         iteracts            % número de iterações 
@@ -15,6 +13,19 @@ classdef Lms < Agent_technique
 
     methods
         function obj = Lms(varargin)
+            % disp(varargin)
+            % Parametros da Classe derivada
+            derivedParams = {'n_win', 'mu', 'H_ini', 'H_rnd_ini', 'epsilon'};
+
+            % Separação entre parâmetros da classe derivada e base
+            isderivedParam = ismember(varargin(1:2:end), derivedParams);
+            % para capturar tanto o arg_label, quanto o arg_value
+            baseArgs = varargin(~reshape([isderivedParam; isderivedParam], 1, []));
+            derivedArgs = varargin(reshape([isderivedParam; isderivedParam], 1, []));
+            % disp(baseArgs)
+
+            obj@Agent_technique(baseArgs{:});
+           
             p = inputParser;
 
             default_n_win = 20;
@@ -23,13 +34,7 @@ classdef Lms < Agent_technique
             default_mu = 0.1;
             check_mu = @(x) isnumeric(x) && isscalar(x) && (x > 0);
 
-            default_x_dim = 3;
-            check_x_dim = @(x) isnumeric(x) && isscalar(x) && (x > 0) && (mod(x,1)==0);
-
-            default_y_dim = 1;
-            check_y_dim = @(x) isnumeric(x) && isscalar(x) && (x > 0) && (mod(x,1)==0);
-
-            default_H_ini = ones(default_y_dim, default_x_dim);
+            default_H_ini = ones(obj.y_dim, obj.x_dim);
             check_H_ini = @(x) isnumeric(x);
 
             default_H_rnd_ini = false;
@@ -43,20 +48,18 @@ classdef Lms < Agent_technique
 
             addOptional(p, 'n_win', default_n_win, check_n_win);
             addOptional(p, 'mu', default_mu, check_mu);
-            addOptional(p, 'x_dim', default_x_dim, check_x_dim);
-            addOptional(p, 'y_dim', default_y_dim, check_y_dim);
             addOptional(p, 'H_ini', default_H_ini, check_H_ini);
             addOptional(p, 'H_rnd_ini', default_H_rnd_ini, check_H_rnd_ini);
             % addOptional(p, 'n_state_buf_len', default_n_state_buf_len, check_n_state_buf_len);
             addOptional(p, 'epsilon', default_epsilon, check_epsilon);
 
-            parse(p, varargin{:});
+            parse(p, derivedArgs{:});
+
+
             obj.iteracts = 0;
             try
                 obj.n_win = p.Results.n_win;
                 obj.mu = p.Results.mu;
-                obj.x_dim = p.Results.x_dim;
-                obj.y_dim = p.Results.y_dim;
                 % obj.n_state_buf_len = p.Results.n_state_buf_len;
                 obj.epsilon = p.Results.epsilon;
 
@@ -74,12 +77,9 @@ classdef Lms < Agent_technique
                 end
 
                 % obj.state_buffer = zeros(obj.x_dim, obj.n_state_buf_len);
-
-
             catch exception
                 error('An error occurred %s', exception.message);
             end
-
 
             obj.iteracts = 0;
 
@@ -88,6 +88,7 @@ classdef Lms < Agent_technique
 
             obj.iteracts = obj.iteracts + 1;
 
+            % Define o tamanho da Janela a ser utilizada
             if obj.iteracts < obj.n_win
                 N = obj.iteracts;
             else
@@ -107,6 +108,14 @@ classdef Lms < Agent_technique
 
         function H = get_H(obj)
             H = obj.H;
+        end
+
+        function obj = update_H(obj, H_new)
+            obj.H = H_new;
+        end
+
+        function y_hat = get_y_hat(obj, st)
+            y_hat = obj.H * st;
         end
         
     end
