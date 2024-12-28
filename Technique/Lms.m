@@ -67,7 +67,7 @@ classdef Lms < Agent_technique
                 obj.p_hat = zeros(obj.y_dim, obj.x_dim);
 
                 % Inicializando a matriz H de pesos
-                if (size(p.Results.H_ini, 1) ~= obj.y_dim) && (size(p.Results.x_ini, 2) ~= obj.x_dim)
+                if (size(p.Results.H_ini, 1) ~= obj.y_dim) && (size(p.Results.H_ini, 2) ~= obj.x_dim)
                     error('The dimension of "H_ini" must be equal to ("y_dim", "x_dim").');
                 end
                 if p.Results.H_rnd_ini
@@ -81,10 +81,8 @@ classdef Lms < Agent_technique
                 error('An error occurred %s', exception.message);
             end
 
-            obj.iteracts = 0;
-
         end
-        function out = apply(obj, obs_buffer, state_buffer)
+        function y_hat = apply(obj, obs_buffer, state_buffer)
 
             obj.iteracts = obj.iteracts + 1;
 
@@ -103,7 +101,7 @@ classdef Lms < Agent_technique
             % w(n+1) = w(n) - \mu * (2 H*R - 2 p + 2 \epsilon H)
             obj.H = obj.H - 2*obj.mu * (obj.H*obj.R_hat - obj.p_hat + obj.epsilon*obj.H);
 
-            out = obj.H * state_buffer(:,1);
+            y_hat = obj.H * state_buffer(:,1);
         end
 
         function H = get_H(obj)
@@ -116,16 +114,6 @@ classdef Lms < Agent_technique
 
         function y_hat = get_y_hat(obj, st)
             y_hat = obj.H * st;
-        end
-        
-    end
-    methods (Static)
-        function out = expectation_approx(buff1, buff2, N)
-            out = zeros(size(buff1,1), size(buff2,1));
-            for i = 1:N
-                out = buff1(:,i) * buff2(:,i)' + out;
-            end
-            out = out / N;
         end
     end
 end

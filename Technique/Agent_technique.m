@@ -4,7 +4,7 @@ classdef Agent_technique < handle
         y_dim               % dimensão da observação
     end
     methods (Abstract)
-        
+        y_hat = apply(obj, obs_buffer, state_buffer)
     end
     
     methods 
@@ -33,6 +33,18 @@ classdef Agent_technique < handle
         % function n_win = get_win_length(obj)
         %     n_win = obj.n_win;
         % end
+    end
+
+    methods (Static)
+        % Expectation de matrizes e vetores, de acordo com a dimensão dos buffers
+        function out = expectation_approx(buff1, buff2, N)
+            % N amostras temporais
+            out = zeros(size(buff1,1), size(buff2,1));
+            for i = 1:N
+                out = buff1(:,i) * buff2(:,i)' + out;
+            end
+            out = out / N;
+        end
     end
 
 end
