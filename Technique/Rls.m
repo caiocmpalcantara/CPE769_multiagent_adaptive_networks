@@ -74,7 +74,7 @@ classdef Rls < Agent_technique
             
             obj.interacts = obj.interacts + 1;
 
-            % N = 1 para RLS
+            % n_win = 1 para RLS
             x = state_buffer(:,1);
             y = obs_buffer(:,1);
 

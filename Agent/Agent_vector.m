@@ -113,7 +113,6 @@ classdef Agent_vector < handle
             end
         end
         
-        
         function obj = social_learning_step(obj)
             collec_H_hat = obj.collec_H_hat();
             obj.fusion_technique.apply(collec_H_hat, obj.B);
