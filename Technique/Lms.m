@@ -1,11 +1,10 @@
 classdef Lms < Agent_technique
     properties
-        R_hat               % estimado a partir do buffer de estados
-        p_hat               % estimado a partir do buffer de estados e de observações
         H                   % matrix de pesos atual
-        n_win               % tamanho da janela de observação
+        % n_win               % tamanho da janela de observação
         mu                  % passo adaptativo
-        iteracts            % número de iterações 
+        iteracts            % número de iterações
+        % R_hat               % Para estimar mu otimo variável 
         % state_buffer        % buffer de estado
         % n_state_buf_len     % tamanho do buffer de estados
         epsilon             % termo de regularização
@@ -15,7 +14,8 @@ classdef Lms < Agent_technique
         function obj = Lms(varargin)
             % disp(varargin)
             % Parametros da Classe derivada
-            derivedParams = {'n_win', 'mu', 'H_ini', 'H_rnd_ini', 'epsilon'};
+            % derivedParams = {'order', 'mu', 'H_ini', 'H_rnd_ini', 'epsilon'};
+            derivedParams = {'mu', 'H_ini', 'H_rnd_ini', 'epsilon'};
 
             % Separação entre parâmetros da classe derivada e base
             isderivedParam = ismember(varargin(1:2:end), derivedParams);
@@ -28,8 +28,8 @@ classdef Lms < Agent_technique
            
             p = inputParser;
 
-            default_n_win = 20;
-            check_n_win = @(x) isnumeric(x) && isscalar(x) && (x > 0) && (mod(x,1)==0);
+            % default_n_win = 5;
+            % check_n_win = @(x) isnumeric(x) && isscalar(x) && (x > 0) && (mod(x,1)==0);
 
             default_mu = 0.1;
             check_mu = @(x) isnumeric(x) && isscalar(x) && (x > 0);
@@ -46,7 +46,7 @@ classdef Lms < Agent_technique
             default_epsilon = 0;
             check_epsilon = @(x) isnumeric(x) && isscalar(x) && (x > 0);
 
-            addOptional(p, 'n_win', default_n_win, check_n_win);
+            % addOptional(p, 'order', default_n_win, check_n_win);
             addOptional(p, 'mu', default_mu, check_mu);
             addOptional(p, 'H_ini', default_H_ini, check_H_ini);
             addOptional(p, 'H_rnd_ini', default_H_rnd_ini, check_H_rnd_ini);
@@ -58,13 +58,10 @@ classdef Lms < Agent_technique
 
             obj.iteracts = 0;
             try
-                obj.n_win = p.Results.n_win;
+                % obj.n_win = p.Results.order;
                 obj.mu = p.Results.mu;
                 % obj.n_state_buf_len = p.Results.n_state_buf_len;
                 obj.epsilon = p.Results.epsilon;
-
-                obj.R_hat = zeros(obj.x_dim, obj.x_dim);
-                obj.p_hat = zeros(obj.y_dim, obj.x_dim);
 
                 % Inicializando a matriz H de pesos
                 if (size(p.Results.H_ini, 1) ~= obj.y_dim) && (size(p.Results.H_ini, 2) ~= obj.x_dim)
@@ -82,26 +79,33 @@ classdef Lms < Agent_technique
             end
 
         end
-        function y_hat = apply(obj, obs_buffer, state_buffer)
+        function y_hat_post = apply(obj, obs_buffer, state_buffer)
 
             obj.iteracts = obj.iteracts + 1;
 
-            % Define o tamanho da Janela a ser utilizada
-            if obj.iteracts < obj.n_win
-                N = obj.iteracts;
-            else
-                N = obj.n_win;
-            end
+            % n_win = 1 para LMS
+            x = state_buffer(:,1);
+            y = obs_buffer(:,1);
 
             % Expectation approximation
-            obj.R_hat = obj.expectation_approx(state_buffer, state_buffer, N);
-            obj.p_hat = obj.expectation_approx(obs_buffer, state_buffer, N);
+            % obj.R_hat = obj.expectation_approx(state_buffer, state_buffer, N);
 
             % obj.H = p_hat*(R_hat + obj.epsilon*eye(obj.x_dim)); Solução exata
             % w(n+1) = w(n) - \mu * (2 H*R - 2 p + 2 \epsilon H)
-            obj.H = obj.H - 2*obj.mu * (obj.H*obj.R_hat - obj.p_hat + obj.epsilon*obj.H);
+            % obj.H = obj.H - 2*obj.mu * (obj.H*obj.R_hat - obj.p_hat + obj.epsilon*obj.H);
+            
+            y_hat_prior = obj.H * x;
+            % Error
+            e = y - y_hat_prior;
 
-            y_hat = obj.H * state_buffer(:,1);
+            % Adapt
+            if obj.epsilon == 0
+                obj.H = obj.H + obj.mu * e * x';
+            else % epsilon > 0
+                obj.H = obj.H + obj.mu / (obj.epsilon + x'*x) * e * x';
+            end
+            
+            y_hat_post = obj.H * x;
         end
 
         function H = get_H(obj)

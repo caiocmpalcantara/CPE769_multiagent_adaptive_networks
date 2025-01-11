@@ -26,13 +26,13 @@ grid on
 % Choose an Agent vector and Run sim
 %{ OBS: (Previsão de acordo com a teoria)
 %}
-%% 1º Valor alto de RMSE (3 agentes, non coop)
+%% 1º Valor alto de RMSE (3 agentes, Wiener, non coop)
 agent_vec = Agent_vector();
-%% 2º Valor alto de RMSE (6 agentes, non coop)
-agent_vec = Agent_vector('n_agents', 6);
-%% 3º Valor mais baixo de RMSE (6 agents, consensus constrain)
-a_vec = repmat(Agent(), [1, 6]);
-for a = 1:6
+%% 2º Valor alto de RMSE (Na agentes, Wiener, non coop)
+agent_vec = Agent_vector('n_agents', Na);
+%% 3º Valor mais baixo de RMSE (Na agents, Wiener, consensus constrain)
+a_vec = repmat(Agent(), [1, Na]);
+for a = 1:Na
     a_vec(a) = Agent();
 end
 agent_vec = Agent_vector('agents_vec', a_vec, 'coop_type', Cooperation_type.consensus_constrain, 'B_matrix', [1 1 1 0 0 0;...
@@ -41,16 +41,16 @@ agent_vec = Agent_vector('agents_vec', a_vec, 'coop_type', Cooperation_type.cons
                                                                                                               0 0 1 1 1 1;...
                                                                                                               0 0 0 1 1 0;...
                                                                                                               0 0 0 1 0 1;]);
-%% 4º Valor baixo de RMSE (6 agents, single task)
-agent_vec = Agent_vector('n_agents', 6, 'coop_type', Cooperation_type.single_task, 'B_matrix', [1 1 1 0 0 0;...
+%% 4º Valor baixo de RMSE (Na agents, Wiener, single task)
+agent_vec = Agent_vector('n_agents', Na, 'coop_type', Cooperation_type.single_task, 'B_matrix', [1 1 1 0 0 0;...
                                                                                                 1 1 0 0 0 0;...
                                                                                                 1 0 1 1 0 0;...
                                                                                                 0 0 1 1 1 1;...
                                                                                                 0 0 0 1 1 0;...
                                                                                                 0 0 0 1 0 1;]);
-%% 5º Valor mais baixo de RMSE (6 agents, consensus constrain, RLS)
-a_vec = repmat(Agent(), [1, 6]);
-for a = 1:6
+%% 5º Valor mais baixo de RMSE (Na agents, RLS, single task)
+a_vec = repmat(Agent(), [1, Na]);
+for a = 1:Na
     a_vec(a) = Agent('agent_tech', Rls('lambda', 0.88));
 end
 agent_vec = Agent_vector('agents_vec', a_vec, 'coop_type', Cooperation_type.single_task, 'B_matrix', [1 1 1 0 0 0;...
@@ -59,8 +59,18 @@ agent_vec = Agent_vector('agents_vec', a_vec, 'coop_type', Cooperation_type.sing
                                                                                                       0 0 1 1 1 1;...
                                                                                                       0 0 0 1 1 0;...
                                                                                                       0 0 0 1 0 1;]);
+%% 6º Valor mais baixo de RMSE (Na agents, LMS, single task)
+a_vec = repmat(Agent(), [1, Na]);
+for a = 1:Na
+    a_vec(a) = Agent('agent_tech', Lms('x_dim', 3, 'y_dim', 1, 'H_ini', [0 0 0], 'epsilon', 1e-5, 'mu', .3));
+end
+agent_vec = Agent_vector('agents_vec', a_vec, 'coop_type', Cooperation_type.single_task, 'B_matrix', [1 1 1 0 0 0;...
+                                                                                                      1 1 0 0 0 0;...
+                                                                                                      1 0 1 1 0 0;...
+                                                                                                      0 0 1 1 1 1;...
+                                                                                                      0 0 0 1 1 0;...
+                                                                                                      0 0 0 1 0 1;]);
 %% Run sim
-Na = agent_vec.n_agents;
 H_hat_history = zeros(y_dim, x_dim, Na, N);
 y_hat_history = zeros(y_dim, Na, N);
 obs = d';

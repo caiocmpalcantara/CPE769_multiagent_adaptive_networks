@@ -1,5 +1,5 @@
 addpath("./Technique/")
-
+rng(8988466)
 x = [1 1 1]';
 u = [1 1 1];
 N = 200;
@@ -19,7 +19,7 @@ grid on
 %% Criando a técnica
 tec1 = [Rls() Rls('H_ini', [0 0 0]) Rls('lambda', .85) Rls('delta', 0.8)];
 A = length(tec1);
-a=4;
+a=3;
 buf_obs = zeros(tec1(a).y_dim, 5);
 buf_st = zeros(tec1(a).x_dim, 5);
 y = zeros(tec1(a).y_dim, N);
@@ -36,12 +36,13 @@ hold off
 
 %% The error: absolut
 e1 = abs(y-u*x);
-e2 = norm(u_hat(:,:,i)-u);
-
+for i = 1:N
+    e2(i) = norm(u_hat(:,:,i)-u);
+end
 figure(2)
-plot(n,e1,'b')
+plot(n,10*log10(e1),'b')
 hold on
-plot(n,e2,'r')
+plot(n,20*log10(e2),'r')
 hold off
 grid on
 title('Test RLS: Absolut and Norm Error.')

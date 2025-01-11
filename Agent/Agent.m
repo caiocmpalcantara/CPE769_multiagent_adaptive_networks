@@ -27,8 +27,8 @@ classdef Agent < handle
             % default_x_ini = zeros(default_x_dim, 1);
             % check_x_ini = @(x) isnumeric(x);
 
-            % default_agent_tech = Lms('x_dim', default_x_dim, 'y_dim', default_y_dim, 'n_win', default_n_win);
-            default_agent_tech = Lms();
+            % default_agent_tech = Wiener('x_dim', default_x_dim, 'y_dim', default_y_dim, 'n_win', default_n_win);
+            default_agent_tech = Wiener();
             check_agent_tech = @(x) isa(x, "Agent_technique");
 
             addOptional(p, 'x_dim', default_x_dim, check_x_dim);
@@ -69,7 +69,7 @@ classdef Agent < handle
                     error('The "n_win" of "agent_tech" must be equal to the "n_win" declared.');
 
                 elseif any(strcmp('agent_tech', p.UsingDefaults)) && (~any(strcmp('x_dim', p.UsingDefaults)) || ~any(strcmp('y_dim', p.UsingDefaults))  || ~any(strcmp('n_win', p.UsingDefaults)))
-                    obj.agent_technique = Lms('x_dim', obj.x_dim, 'y_dim', obj.y_dim, 'n_win', obj.n_window);
+                    obj.agent_technique = Wiener('x_dim', obj.x_dim, 'y_dim', obj.y_dim, 'n_win', obj.n_window);
                 end
                 
                 obj.H_hat = obj.agent_technique.get_H();

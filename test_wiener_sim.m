@@ -1,5 +1,4 @@
 addpath("./Technique/")
-
 rng(8988467)
 % x = [1 1 1]';
 u = [.1 .3 .7];
@@ -15,34 +14,31 @@ for n = 1:N
     d(1,n,:) = y(n) + noise(1,n,:);
 end
 
-%% Criando a técnica
-tec1 = Lms2('x_dim', 3, 'y_dim', 1, 'H_ini', [0 0 0], 'epsilon', 1e-5, 'mu', .3);
-buf_obs = zeros(tec1.y_dim, 5);
-buf_st = zeros(tec1.x_dim, 5);
-y_hat = zeros(tec1.y_dim, N, M);
-u_hat = zeros(tec1.y_dim, tec1.x_dim, N, M);
 
-% MC
+%% Criando a técnica
+% tec = Wiener();
+tec = Wiener('H_ini', [0 0 0], 'mu', .2);
+% tec = Wiener('n_win', 50);
+% tec = Wiener('mu', 0.5);
+% tec = Wiener('epsilon', 0.1);
+
+%% Monte-Carlo
+
+buf_obs = zeros(tec.y_dim, tec.n_win);
+buf_st = zeros(tec.x_dim, tec.n_win);
+y_hat = zeros(tec.y_dim, N, M);
+u_hat = zeros(tec.y_dim, tec.x_dim, N, M);
 for m = 1:M
     for i = 1:N
         buf_obs = update_buffer(buf_obs, d(1,i,m));
         buf_st = update_buffer(buf_st, x(i:i+2));
-        y_hat(:,i,m) = tec1.apply(buf_obs, buf_st);
-        u_hat(:,:,i,m) = tec1.get_H();
+        y_hat(:,i,m) = tec.apply(buf_obs, buf_st);
+        u_hat(:,:,i,m) = tec.get_H();
     end
 end
-% %% Compare
-% nlms = dsp.LMSFilter(2,'Method', 'Normalized LMS','StepSize', 1);
-% [y_hat2,erro,u_hat2] = nlms(x',d');
-% 
-% plot(n, y_hat2, '--k')
-% 
-% %%
-% [mmse,emse,meanW,mse,traceK] = msepred(nlms,x',d',m);
-% [simmse,meanWsim,Wsim,traceKsim] = msesim(nlms,x',d',m);
 
 %% Figures
-figure(1)
+figure(10)
 plot(1:N,d(:,:,9),'b')
 hold on
 plot(1:N,y_hat(:,:,9),'--r')
@@ -62,17 +58,17 @@ for m = 1:M
 end
 e2m = mean(e2,3);
 
-figure(2)
+figure(20)
 plot(1:N,10*log10(e1m),'b')
-title('MSE: LMS.')
+title('MSE: Wiener.')
 ylabel('e[n]')
 xlabel('n')
 set(gca, 'YLim', [-30 0])
 grid on
 
-figure(3)
+figure(30)
 plot(1:N,20*log10(e2m),'r')
-title('MSD: LMS.')
+title('MSD: Wiener.')
 ylabel('e[n]')
 xlabel('n')
 set(gca, 'YLim', [-30 0])

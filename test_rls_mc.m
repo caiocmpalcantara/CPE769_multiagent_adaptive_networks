@@ -8,8 +8,8 @@ n = 1:N;
 
 % x = linspace(1,1,N);
 % x = linspace(3,3,N);
-x = linspace(1,10,N);
-% x = sin(n/10*pi);
+% x = linspace(1,10,N);
+x = sin(n/10*pi);
 % x = zeros(1,N);
 % x(1:N/2) = linspace(1,10,N/2);
 % x(N/2+1:end) = linspace(10,1,N/2);
@@ -30,7 +30,7 @@ for m = 1:M
 end
 
 %% Criando a técnica
-tec1 = Lms2('x_dim', 2, 'y_dim', 1, 'H_ini', [0 0], 'epsilon', 1e-5, 'mu', .3);
+tec1 = Rls('x_dim', 2, 'y_dim', 1, 'H_ini', [0 0], 'lambda', .85, 'delta', 1e-3);
 buf_obs = zeros(tec1.y_dim, 5);
 buf_st = zeros(tec1.x_dim, 5);
 y_hat = zeros(tec1.y_dim, N, M);
@@ -49,15 +49,7 @@ for m = 1:M
         u_hat(:,:,i,m) = tec1.get_H();
     end
 end
-% %% Compare
-% nlms = dsp.LMSFilter(2,'Method', 'Normalized LMS','StepSize', 1);
-% [y_hat2,erro,u_hat2] = nlms(x',d');
-% 
-% plot(n, y_hat2, '--k')
-% 
-% %%
-% [mmse,emse,meanW,mse,traceK] = msepred(nlms,x',d',m);
-% [simmse,meanWsim,Wsim,traceKsim] = msesim(nlms,x',d',m);
+
 
 %% Figures
 figure(1)
@@ -89,7 +81,7 @@ ylabel('e[n]')
 xlabel('n')
 grid on
 figure(3)
-plot(n,e2m,'r')
+plot(n,20*log10(e2m),'r')
 title('Test LMS: Error.')
 ylabel('e[n]')
 xlabel('n')

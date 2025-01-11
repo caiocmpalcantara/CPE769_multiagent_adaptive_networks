@@ -1,71 +1,98 @@
 addpath("./Technique/")
-% rng(8988466)
-x = [1 1 1]';
-u = [1 1 1];
-N = 1000;
-M = 300;
+
+rng(8988466)
+u = [.2 .6];
+N = 300;
+M = 600;
 n = 1:N;
-noise = randn(1,N,M);
 
-d = u*x + noise;
+% x = linspace(1,1,N);
+% x = linspace(3,3,N);
+x = linspace(1,10,N);
+% x = sin(n/10*pi);
+% x = zeros(1,N);
+% x(1:N/2) = linspace(1,10,N/2);
+% x(N/2+1:end) = linspace(10,1,N/2);
+d = zeros(1,N,M);
+y = zeros(1,N);
+noise = .2*randn(1,N,M);
 
-%% Criando a técnica
-% tec = Lms();
-tec = Lms('H_ini', [0 0 0], 'mu', .2);
-% tec = Lms('n_win', 50);
-% tec = Lms('mu', 0.5);
-% tec = Lms('epsilon', 0.1);
-
-%% Monte-Carlo
-
-buf_obs = zeros(tec.y_dim, tec.n_win);
-buf_st = zeros(tec.x_dim, tec.n_win);
-y_hat = zeros(tec.y_dim, N, M);
-u_hat = zeros(tec.y_dim, tec.x_dim, N, M);
+% Dynamics
+y(1) = u*[x(1) 0]';
+for i = 1:N-1
+    y(i+1) = u*[x(i+1) x(i)]';
+end
 for m = 1:M
-    for i = 1:N
-        buf_obs = update_buffer(buf_obs, d(1,i,m));
-        buf_st = update_buffer(buf_st, x);
-        y_hat(:,i,m) = tec.apply(buf_obs, buf_st);
-        u_hat(:,:,i,m) = tec.get_H();
+    d(1,1,m) = y(1) + noise(1,1,m);
+    for i = 1:N-1
+        d(1,i+1,m) = y(i+1) + noise(1,i+1,m);
     end
 end
 
+%% Criando a técnica
+tec1 = Lms('x_dim', 2, 'y_dim', 1, 'H_ini', [0 0], 'epsilon', 1e-5, 'mu', .3);
+buf_obs = zeros(tec1.y_dim, 5);
+buf_st = zeros(tec1.x_dim, 5);
+y_hat = zeros(tec1.y_dim, N, M);
+u_hat = zeros(tec1.y_dim, tec1.x_dim, N, M);
+
+% MC
+for m = 1:M
+    for i = 1:N
+        buf_obs = update_buffer(buf_obs, d(1,i,m));
+        if i == 1
+            buf_st = update_buffer(buf_st, [x(i) 0]');
+        else
+            buf_st = update_buffer(buf_st, [x(i) x(i-1)]');
+        end
+        y_hat(:,i,m) = tec1.apply(buf_obs, buf_st);
+        u_hat(:,:,i,m) = tec1.get_H();
+    end
+end
+% %% Compare
+% nlms = dsp.LMSFilter(2,'Method', 'Normalized LMS','StepSize', 1);
+% [y_hat2,erro,u_hat2] = nlms(x',d');
+% 
+% plot(n, y_hat2, '--k')
+% 
+% %%
+% [mmse,emse,meanW,mse,traceK] = msepred(nlms,x',d',m);
+% [simmse,meanWsim,Wsim,traceKsim] = msesim(nlms,x',d',m);
+
 %% Figures
 figure(1)
-plot(n,d(:,:,9),'b')
-hold on
-plot(n,y_hat(:,:,9),'--r')
+plot(n,d(1,:,m),'b')
 xlabel('Time')
 ylabel('Observation')
-title('A realization')
+title('Testing LMS Class')
+hold on
 grid on
+plot(n, y_hat(1,:,m), '--r')
 hold off
 %% The error
-e1 = (y_hat-u*x).^2;
+e1 = (y_hat(1,:,:)-d(1,:,:)).^2;
 e1m = mean(e1,3);
 e2 = zeros(1,N);
 for m = 1:M
     for i = 1:N
-        e2(i,m) = norm(u_hat(:,:,i,m)-u);
-    end    
+        e2(i) = norm(u_hat(:,:,i,m)-u);
+    end
 end
-e2m = mean(e2,2);
-
+e2m = mean(e2,4);
 figure(2)
 plot(n,10*log10(e1m),'b')
+% hold on
+% plot(n,10*log10(erro.^2),'r')
+% hold off
 title('Test LMS: Error.')
 ylabel('e[n]')
 xlabel('n')
-set(gca, 'YLim', [-30 0])
 grid on
-
 figure(3)
-plot(n,10*log10(e2m),'r')
+plot(n,e2m,'r')
 title('Test LMS: Error.')
 ylabel('e[n]')
 xlabel('n')
-set(gca, 'YLim', [-30 0])
 grid on
 
 %% functions

@@ -3,9 +3,9 @@ classdef Rls < Agent_technique
     %  Based on Adaptive Filtering Algorithms and Practical Implementation, Chap.5, Diniz 
     %}
     properties
-        S_D             % matriz S RLS
-        psi             % vetor psi RLS Alternativo
-        e               % vetor e RLS Alternativo
+        P               % matriz P RLS
+        g             % vetor g RLS Alternativo
+        alpha           % vetor e RLS Alternativo
         H               % matrix de pesos atual
         interacts       % número de iterações
         lambda          % lambda do algoritmo RLS
@@ -61,16 +61,16 @@ classdef Rls < Agent_technique
                     obj.H = p.Results.H_ini;
                 end
 
-                % Inicializando matriz S_D e vetor p_D
-                obj.S_D = obj.delta * eye(obj.x_dim);
-                obj.psi = obj.S_D * zeros(obj.x_dim, 1);
-                obj.e = zeros(obj.y_dim, 1);
+                % Inicializando matriz P e vetor p_D
+                obj.P = obj.delta * eye(obj.x_dim);
+                obj.g = obj.P * zeros(obj.x_dim, 1);
+                obj.alpha = zeros(obj.y_dim, 1);
 
             catch exception
                 error('An error occurred %s', exception.message);
             end
         end
-        function y_hat = apply(obj, obs_buffer, state_buffer)
+        function y_hat_post = apply(obj, obs_buffer, state_buffer)
             
             obj.interacts = obj.interacts + 1;
 
@@ -78,19 +78,23 @@ classdef Rls < Agent_technique
             x = state_buffer(:,1);
             y = obs_buffer(:,1);
 
-            % Alternative RLS Algorithm (Diniz)
-            obj.e = y - obj.H * x;
-            obj.psi = obj.S_D * x;
-
-            obj.S_D = (1/obj.lambda)*(obj.S_D - (obj.psi*obj.psi')/(obj.lambda + obj.psi'*x));
-            % Fator de correção de divergência
-            if norm(obj.S_D, 'fro') >= 1e15
-                obj.reset_S_D();
-                obj.update_lambda(0.05);
-            end
-            obj.H = obj.H + (obj.e*obj.S_D*x)';
             
-            y_hat = obj.get_y_hat(x);
+            % Alternative RLS Algorithm %Ref Wikipedia
+            y_hat_prior = obj.H * x;
+            obj.alpha = y - y_hat_prior;
+            obj.g = obj.P * x / (obj.lambda + x'*obj.P*x);
+
+            obj.P = (1/obj.lambda)*obj.P - obj.g * x'*obj.P/obj.lambda;
+            % Fator de correção de série divergente
+            if norm(obj.P, 'fro') >= 1e15
+                obj.reset_P();
+                obj.update_lambda(0.001);
+            end
+            w = obj.H';
+            w = w + obj.alpha*obj.g;
+            obj.H = w';
+            
+            y_hat_post = obj.get_y_hat(x);
         end
         function H = get_H(obj)
             H = obj.H;
@@ -101,8 +105,8 @@ classdef Rls < Agent_technique
         function y_hat = get_y_hat(obj, st)
             y_hat = obj.H * st;
         end
-        function obj = reset_S_D(obj)
-            obj.S_D = obj.delta * eye(obj.x_dim);
+        function obj = reset_P(obj)
+            obj.P = obj.delta * eye(obj.x_dim);
         end
         function obj = update_lambda(obj, add)
             if (0 < obj.lambda + add) && (obj.lambda + add <= 1)

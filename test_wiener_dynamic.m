@@ -51,7 +51,7 @@ hold on
 grid on
 
 %% Criando a técnica + Simulation
-tec1 = Lms('x_dim', 4, 'y_dim', 4, 'H_ini',[1 0 10 0; 0 1 0 10; 0 0 1 0; 0 0 0 1],'epsilon', 1e3, 'mu', 5.5e-9, 'n_win', 10);
+tec1 = Wiener('x_dim', 4, 'y_dim', 4, 'H_ini',[1 0 10 0; 0 1 0 10; 0 0 1 0; 0 0 0 1],'epsilon', 1e3, 'mu', 5.5e-9, 'n_win', 10);
 
 buf_obs = zeros(tec1.y_dim, tec1.n_win);
 buf_st = zeros(tec1.x_dim, tec1.n_win);

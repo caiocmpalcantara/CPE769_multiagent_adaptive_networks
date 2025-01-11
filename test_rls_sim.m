@@ -16,7 +16,7 @@ for n = 1:N
 end
 
 %% Criando a técnica
-tec1 = Lms('x_dim', 3, 'y_dim', 1, 'H_ini', [0 0 0], 'epsilon', 1e-5, 'mu', .3);
+tec1 = Rls('x_dim', 3, 'y_dim', 1, 'H_ini', [0 0 0], 'lambda', .85, 'delta', 1e-3);
 buf_obs = zeros(tec1.y_dim, 5);
 buf_st = zeros(tec1.x_dim, 5);
 y_hat = zeros(tec1.y_dim, N, M);
@@ -64,7 +64,7 @@ e2m = mean(e2,3);
 
 figure(2)
 plot(1:N,10*log10(e1m),'b')
-title('MSE: LMS.')
+title('MSE: RLS.')
 ylabel('e[n]')
 xlabel('n')
 set(gca, 'YLim', [-30 0])
@@ -72,7 +72,7 @@ grid on
 
 figure(3)
 plot(1:N,20*log10(e2m),'r')
-title('MSD: LMS.')
+title('MSD: RLS.')
 ylabel('e[n]')
 xlabel('n')
 set(gca, 'YLim', [-30 0])
