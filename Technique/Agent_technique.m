@@ -5,6 +5,7 @@ classdef Agent_technique < handle
     end
     methods (Abstract)
         y_hat = apply(obj, obs_buffer, state_buffer)
+        obj = reset(obj);
     end
     
     methods 

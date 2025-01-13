@@ -3,7 +3,7 @@ addpath("./Technique/")
 addpath("./Agent/")
 
 %% Simple stationary simulation
-rng(8988466)
+rng(8988467)
 % x = [1 1 1]';
 u = [.1 .3 .7];
 x_dim = 3;
@@ -68,6 +68,18 @@ agent_vec = Agent_vector('agents_vec', a_vec, 'coop_type', Cooperation_type.sing
                                                                                                       0 0 1 1 1 1;...
                                                                                                       0 0 0 1 1 0;...
                                                                                                       0 0 0 1 0 1;]);
+%% 7º Valor alto de RMSE (Na agentes, LMS, non coop)
+a_vec = repmat(Agent(), [1, Na]);
+for a = 1:Na
+    a_vec(a) = Agent('agent_tech', Lms('x_dim', 3, 'y_dim', 1, 'H_ini', [0 0 0], 'epsilon', 1e-5, 'mu', .3));
+end
+agent_vec = Agent_vector('n_agents', Na, 'agents_vec', a_vec);
+%% 8º Valor alto de RMSE (Na agentes, RLS, non coop)
+a_vec = repmat(Agent(), [1, Na]);
+for a = 1:Na
+    a_vec(a) = Agent('agent_tech', Rls('x_dim', 3, 'y_dim', 1, 'H_ini', [0 0 0], 'lambda', .85, 'delta', 1e-3));
+end
+agent_vec = Agent_vector('n_agents', Na, 'agents_vec', a_vec);
 %% Run sim with Monte-Carlo
 
 H_hat_history = zeros(y_dim, x_dim, N, Na, M);
@@ -79,20 +91,22 @@ for m = 1:M
             H_hat_history(:,:,n,a,m) = agent_vec.agents_vec(a).get_H_hat();
             y_hat_history(:,n,a,m) = agent_vec.agents_vec(a).get_y_hat();
         end
-    end    
+    end
+    agent_vec.reset();
 end
 
 %% Plots
 
 figure(1)
-n = 1:N;
-plot(n, d(1,:,1,1), 'b')
+len = 100;
+n = 1:len;
+plot(n, d(1,1:len,1,1), 'b')
 hold on
-plot(n, y_hat_history(1,:,1,1), 'r--', 'LineWidth', 1.5)
-plot(n, y_hat_history(1,:,2,1), 'g-.', 'LineWidth', 1.5)
-plot(n, y_hat_history(1,:,3,1), 'y--', 'LineWidth', 1.5)
+plot(n, y_hat_history(1,1:len,1,1), 'r--', 'LineWidth', 1.5)
+plot(n, y_hat_history(1,1:len,2,1), 'g-.', 'LineWidth', 1.5)
+plot(n, y_hat_history(1,1:len,3,1), 'y--', 'LineWidth', 1.5)
 xlabel('Time')
-ylabel('Observation')
+ylabel('y_{hat}')
 title('A realization')
 legend('d', 'a1', 'a2', 'a3')
 hold off
@@ -104,9 +118,9 @@ n = 1:N;
 % plot(n, reshape(y_hat_history(:,3,:), [1, N]), 'k--');
 
 %% The error
-a = 1;
-e1 =  (y_hat_history(1,:,a,:) - y).^2;
-e11 =  (y_hat_history(1,:,a,1) - y).^2;
+a = 4;
+e1 =  (y_hat_history(1,:,a,:) - d(1,:,a,:)).^2;
+e11 =  (y_hat_history(1,:,a,1) - d(1,:,a,1)).^2;
 e1m = mean(e1,4);
 % e1 = abs(reshape(y_hat_history(:,1,:), [1, N]) - u*x);
 e2 = zeros(1,N,M);
@@ -123,7 +137,8 @@ plot(n,10*log10(e1m),'b')
 % hold on
 % plot(n,10*log10(e11),'r')
 % hold off
-title('Test: MSE.')
+tit = sprintf('Test: MSE. Agente = %d', a);
+title(tit)
 ylabel('e[n]')
 xlabel('n')
 set(gca, 'YLim', [-30 0])
@@ -134,8 +149,34 @@ plot(n,20*log10(e2m),'b')
 % hold on
 % plot(n,10*log10(e21),'r')
 % hold off
-title('Test: MSD.')
+tit = sprintf('Test: MSD. Agente = %d', a);
+title(tit)
 ylabel('e[n]')
 xlabel('n')
 set(gca, 'YLim', [-30 0])
+grid on
+
+%% Benchmark
+
+y_ticks = -40:5:0;
+figure(4)
+plot(n,10*log10(e1m_wiener_noncoop_a4),'r')
+hold on
+plot(n,10*log10(e1m_wiener_a4),'b')
+hold off
+ylabel('MSE')
+xlabel('n')
+set(gca, 'YLim', [-40 0], 'YTick', y_ticks)
+legend('noncoop', 'ATC w_{hat}')
+grid on
+
+figure(5)
+plot(n,20*log10(e2m_wiener_noncoop_a4),'r')
+hold on
+plot(n,20*log10(e2m_wiener_a4),'b')
+hold off
+ylabel('MSD')
+xlabel('n')
+set(gca, 'YLim', [-40 0], 'YTick', y_ticks)
+legend('noncoop', 'ATC w_{hat}')
 grid on

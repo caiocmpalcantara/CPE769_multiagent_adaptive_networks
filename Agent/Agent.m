@@ -21,7 +21,7 @@ classdef Agent < handle
             default_y_dim = 1;
             check_y_dim = @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1) == 0);
 
-            default_n_win = 20;
+            default_n_win = 10;
             check_n_win = @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1) == 0);
 
             % default_x_ini = zeros(default_x_dim, 1);
@@ -105,6 +105,14 @@ classdef Agent < handle
 
         function H_hat = get_H_hat(obj)
             H_hat = obj.H_hat;
+        end
+
+        function obj = reset(obj)
+            obj.H_hat = zeros(size(obj.H_hat));
+            obj.obs_buffer = zeros(size(obj.obs_buffer));
+            obj.state_buffer = zeros(size(obj.state_buffer));
+            obj.y_hat = zeros(size(obj.y_hat));
+            obj.agent_technique.reset();
         end
         
     end

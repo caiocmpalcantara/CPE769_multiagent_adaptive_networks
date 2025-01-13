@@ -128,5 +128,11 @@ classdef Agent_vector < handle
         function n_agents = get_n_agents(obj)
             n_agents = obj.n_agents;
         end
+
+        function obj = reset(obj)
+            for a = 1:obj.n_agents
+                obj.agents_vec(a).reset();
+            end
+        end
     end
 end

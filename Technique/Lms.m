@@ -119,5 +119,10 @@ classdef Lms < Agent_technique
         function y_hat = get_y_hat(obj, st)
             y_hat = obj.H * st;
         end
+
+        function obj = reset(obj)
+            obj.H = zeros(size(obj.H));
+            obj.iteracts = 0;
+        end
     end
 end

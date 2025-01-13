@@ -113,5 +113,12 @@ classdef Rls < Agent_technique
                 obj.lambda = obj.lambda + add;
             end
         end
+        function obj = reset(obj)
+            obj.H = zeros(size(obj.H));
+            obj.P = obj.delta * eye(obj.x_dim);
+            obj.g = obj.P * zeros(obj.x_dim, 1);
+            obj.alpha = zeros(obj.y_dim, 1);
+            obj.interacts = 0;
+        end
     end
 end

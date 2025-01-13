@@ -28,13 +28,13 @@ classdef Wiener < Agent_technique
            
             p = inputParser;
 
-            default_n_win = 20;
+            default_n_win = 10;
             check_n_win = @(x) isnumeric(x) && isscalar(x) && (x > 0) && (mod(x,1)==0);
 
             default_mu = 0.1;
             check_mu = @(x) isnumeric(x) && isscalar(x) && (x > 0);
 
-            default_H_ini = ones(obj.y_dim, obj.x_dim);
+            default_H_ini = zeros(obj.y_dim, obj.x_dim);
             check_H_ini = @(x) isnumeric(x);
 
             default_H_rnd_ini = false;
@@ -114,6 +114,13 @@ classdef Wiener < Agent_technique
 
         function y_hat = get_y_hat(obj, st)
             y_hat = obj.H * st;
+        end
+
+        function obj = reset(obj)
+            obj.H = zeros(size(obj.H));
+            obj.R_hat = zeros(obj.x_dim, obj.x_dim);
+            obj.p_hat = zeros(obj.y_dim, obj.x_dim);
+            obj.iteracts = 0;
         end
     end
 end
