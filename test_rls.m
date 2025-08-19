@@ -7,6 +7,7 @@ n = 1:N;
 noise = randn(1,N);
 
 d = u*x + noise;
+
 %% Figures
 figure(1)
 plot(n,d,'b')

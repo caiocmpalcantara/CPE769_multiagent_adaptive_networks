@@ -1,16 +1,19 @@
-classdef Agent_technique < handle
+classdef Agent_technique2 < handle
     properties
         x_dim               % dimensão do estado
         y_dim               % dimensão da observação
     end
     methods (Abstract)
-        y_hat = apply(obj, obs_buffer, state_buffer)
+        [varargout] = apply(obj, varargin)    % varargin -> (Wiener) obs_buffder, and state_buffer; (Kalman) current obs and other Kalman options
         obj = reset(obj);
     end
     
     methods 
-        function obj = Agent_technique(varargin)
+        function obj = Agent_technique2(varargin)
             p = inputParser;
+            p.KeepUnmatched = true;
+
+            % DEBUG(varargin)
 
             default_x_dim = 3;
             check_x_dim = @(x) isnumeric(x) && isscalar(x) && (x > 0) && (mod(x,1)==0);
@@ -29,6 +32,9 @@ classdef Agent_technique < handle
                 error('An error occurred %s', exception.message);
             end
 
+            DEBUG(obj.x_dim)
+            DEBUG(obj.y_dim)
+            
         end
         % function n_win = get_win_length(obj)
         %     n_win = obj.n_win;
