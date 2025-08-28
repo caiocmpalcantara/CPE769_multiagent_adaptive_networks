@@ -1,4 +1,8 @@
 function DEBUG(obj)
+    global DEBUG_MODE;
+    if ~exist('DEBUG_MODE', 'var') || ~DEBUG_MODE
+        return;
+    end
     % Retrieve caller information
     st = dbstack('-completenames', 1);
     if numel(st) >= 1

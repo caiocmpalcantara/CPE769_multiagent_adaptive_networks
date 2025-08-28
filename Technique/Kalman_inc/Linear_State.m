@@ -2,6 +2,7 @@ classdef Linear_State < System_Model
     properties (Access = protected)
         Q
         A
+        initial_params struct
     end
 
     methods
@@ -55,6 +56,10 @@ classdef Linear_State < System_Model
             
                 obj.Q = Q;
                 obj.A = A;
+                
+                obj.initial_params = struct();
+                obj.initial_params.delta = [];
+                obj.initial_params.initial_state = [];
 
             catch exception
                 error('An error occurred: %s.\n', exception.message)
@@ -80,6 +85,7 @@ classdef Linear_State < System_Model
             parse(p, varargin{:});
             try
                 Pa = p.Results.delta * eye(obj.dim);
+                obj.initial_params.delta = p.Results.delta;
             catch exception
                 error('An error occurred: %s.\n', exception.message);
             end    
@@ -99,6 +105,7 @@ classdef Linear_State < System_Model
                 %     error('The initial state used is different than model dimension.')
                 % end
                 xa = p.Results.initial_state;
+                obj.initial_params.initial_state = p.Results.initial_state;
             catch exception
                 error('An error occurred: %s.\n', exception.message);
             end

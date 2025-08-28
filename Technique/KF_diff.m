@@ -11,7 +11,7 @@ classdef KF_diff < Kalman2
 
     methods
         function obj = KF_diff(varargin)
-            % DEBUG(varargin)
+            DEBUG(varargin)
             obj@Kalman2(varargin{:});
             % DEBUG(varargin)
 

@@ -48,6 +48,7 @@ switch sim
         d = zeros(1,N);
         y = zeros(1,N);
         noise = y_sd * randn(1,N);
+        H = zeros(N, x_dim);
         H(1,:) = [x(1) 0];
         % y(1) = u*[x(1) 0]';
         
@@ -188,7 +189,7 @@ plot(1:N,10*log10(e1m),'b')
 title('MSE: Kalman Filter.')
 ylabel('e[n]')
 xlabel('n')
-set(gca, 'YLim', [-30 0])
+set(gca, 'YLim', [-40 0])
 grid on
 
 figure(3)
@@ -196,7 +197,7 @@ plot(1:N,20*log10(e2m),'r')
 title('MSD: Kalman Filter.')
 ylabel('e[n]')
 xlabel('n')
-set(gca, 'YLim', [-30 0])
+set(gca, 'YLim', [-40 0])
 grid on
 
 % %% Print Trajectories (Scatter)

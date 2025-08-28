@@ -6,6 +6,8 @@ classdef Agent_technique2 < handle
     methods (Abstract)
         [varargout] = apply(obj, varargin)    % varargin -> (Wiener) obs_buffder, and state_buffer; (Kalman) current obs and other Kalman options
         obj = reset(obj);
+        obj = update_params(obj, varargin);
+        obj = get_params(obj, varargin);
     end
     
     methods 

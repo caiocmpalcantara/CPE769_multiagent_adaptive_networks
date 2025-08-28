@@ -203,6 +203,44 @@ classdef Kalman2 < Agent_technique2
             
         end
 
+        function obj = update_params(obj, varargin)
+            % @brief Update the Kalman filtering parameters based on new information.
+           
+            try
+                ind = find(strcmp(varargin, 'state_estimate'));
+                if ~isempty(ind)
+                    obj.xp_hat = varargin{ind+1};
+                end
+
+                ind = find(strcmp(varargin, 'covariance_estimate'));
+                if ~isempty(ind)
+                    obj.Pp = varargin{ind+1};
+                end
+
+            catch exception
+                error('An error occurred: %s', exception.message)
+            end
+        end
+
+        function params = get_params(obj, varargin)
+            % @brief Get the Kalman filtering parameters.
+            params = struct();
+            try
+                ind = find(strcmp(varargin, 'state_estimate'));
+                if ~isempty(ind)
+                    params.state_estimate = obj.xp_hat;
+                end
+
+                ind = find(strcmp(varargin, 'covariance_estimate'));
+                if ~isempty(ind)
+                    params.covariance_estimate = obj.Pp;
+                end
+
+            catch exception
+                error('An error occurred: %s', exception.message)
+            end
+        end
+
         % Method: apply - From Agent_technique, apply the technique, updating the Kalman filtering statistics 
         % ---------------------------------------------------------
         function [varargout] = apply(obj, varargin)
@@ -214,9 +252,10 @@ classdef Kalman2 < Agent_technique2
             
             try
                 ind = find(strcmp(varargin, 'measurement'));
-                measurement = varargin{ind+1};
                 if isempty(ind)
                     error('Measurement not provided.')
+                else
+                    measurement = varargin{ind+1};
                 end
             catch exception
                 error('An error occurred: %s', exception.message)
@@ -299,6 +338,11 @@ classdef Kalman2 < Agent_technique2
 
         end
 
+        function obj = update_agent_state_estimates(obj, agent)
+            agent.xp_hat = obj.xp_hat;
+            agent.xa_hat = obj.xa_hat;
+        end
+
         function xa = get_prior_state(obj)
             xa = obj.xa_hat;
         end
@@ -326,7 +370,22 @@ classdef Kalman2 < Agent_technique2
             obj.VAR_R = (p.Results.sig_R).^2;
             obj.VAR_phi = (deg2rad(p.Results.sig_phi)).^2;
         end
+
+        function obj = reset(obj)
+            obj.K = zeros(obj.x_dim, obj.y_dim);
+            obj.S = zeros(obj.y_dim);
+            obj.iteracts = 0;
+            obj.a = zeros(obj.x_dim, 1);
+            obj.last_update_timestamp = [];
+            obj.last_T_sample_time = [];
+            obj.Pp = obj.system_model.Pa_init('delta', obj.system_model.initial_params.delta);
+            obj.Pa = obj.Pp;
+            obj.xa_hat = obj.system_model.xa_init('initial_state', obj.system_model.initial_params.initial_state);
+            obj.xp_hat = obj.xa_hat;   
+        end
+        
     end
+
     methods (Static)
         function assign(kf1, kf2)
             try

@@ -118,7 +118,7 @@ classdef Agent_vector < handle
             obj.fusion_technique.apply(collec_H_hat, obj.B);
         end
         
-        function collec_H_hat = collec_H_hat(obj)
+        function collec_H_hat = collec_H_hat(obj)   %FIXME: O agent vec acaba funcionando como uma central (na forma como foi programado)
             collec_H_hat = zeros(obj.y_dim, obj.x_dim, obj.n_agents);
             for a = 1:obj.n_agents
                 collec_H_hat(:,:,a) = obj.agents_vec(a).get_H_hat();
