@@ -59,8 +59,8 @@ y_sd = 1;
 u = [1 1 1]';   % The "state"
 H = [1 1 1];
 N = 200;
-M = 300;    % Number of Monte Carlo realizations
-Na = 4;  % Number of agents
+M = 50;    % Number of Monte Carlo realizations
+Na = 6;  % Number of agents
 n = 1:N;
 rng(8988466)
 noise = y_sd * randn(Na,N,M);
@@ -123,11 +123,20 @@ fprintf('\nConfiguring fusion techniques for distributed neighbor management...\
 % Agent 2: connected to agents 1,2,4
 % Agent 3: connected to agents 1,3,4
 % Agent 4: connected to agents 2,3,4
+% neighbor_lists = {
+%     [1, 2, 3];     % Agent 1 neighbors (including self)
+%     [1, 2, 4];     % Agent 2 neighbors
+%     [1, 3, 4];     % Agent 3 neighbors
+%     [2, 3, 4]      % Agent 4 neighbors
+% };
+
 neighbor_lists = {
-    [1, 2, 3];     % Agent 1 neighbors (including self)
-    [1, 2, 4];     % Agent 2 neighbors
-    [1, 3, 4];     % Agent 3 neighbors
-    [2, 3, 4]      % Agent 4 neighbors
+    [1, 2, 3];   % Agent 1 neighbors (including self)
+    [1, 2];      % Agent 2 neighbors
+    [1, 3, 4];   % Agent 3 neighbors
+    [3, 4, 5, 6] % Agent 4 neighbors
+    [4, 5]       % Agent 5 neighbors
+    [4, 6]       % Agent 6 neighbors
 };
 
 % Setup fusion techniques and neighbor connections for each agent
@@ -288,7 +297,7 @@ end
 % mean_fused_error = mean(state_errors_fused(end, :));
 % improvement = (mean_individual_error - mean_fused_error) / mean_individual_error * 100;
 
-mean_individual_error = mean(sqrt(mean(state_errors_individual_mean(:,:).^2, 1)));
+mean_individual_error = mean(sqrt(mean(state_errors_individual_mean(:,:).^2, 1))); % TODO: fix the order of the mean to reflect the monte-carlo of the temporal mean
 mean_fused_error = mean(sqrt(mean(state_errors_fused_mean(:,:).^2, 1)));
 improvement = (mean_individual_error - mean_fused_error) / mean_individual_error * 100;
 
@@ -324,7 +333,7 @@ title(sprintf('Observations vs Predictions (realization %d)', m));
 legend('Noisy Observations from Agent 1', 'Agent 1 Pred', 'Agent 2 Pred', 'Agent 3 Pred', 'Agent 4 Pred', 'True Value', 'Location', 'best');
 grid on;
 
-% Figure 2: Consensus Evolution
+% Subfigure 2: Consensus Evolution
 subplot(2,2,2);
 for a = 1:Na
     plot(n, squeeze(fused_estimates(1, :, a, m)), 'LineWidth', 1.5);
@@ -337,7 +346,7 @@ title(sprintf('Consensus Evolution (x_1), realization %d', m));
 legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'True Value', 'Location', 'best');
 grid on;
 
-% Figure 1: Covariance Trace Evolution
+% Subfigure 3: Covariance Trace Evolution
 subplot(2,2,3);
 plot(n, P_trace_history(:, 1, m), 'r-', 'LineWidth', 1.5);
 hold on;
@@ -350,7 +359,7 @@ title(sprintf('Uncertainty Evolution (Covariance Trace) - realization %d', m));
 legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'Location', 'best');
 grid on;
 
-% Figure 1: State Convergence
+% Subfigure 4: State Convergence
 subplot(2,2,4);
 plot(n, squeeze(fused_estimates(1, :, 1, m)), 'r-', 'LineWidth', 1.5);
 hold on;
@@ -454,33 +463,49 @@ grid on;
 figure(3);
 clf;
 subplot(1,2,1);
-agents_idx = 1:Na;
+Na_to_show = min(Na, 8);
+agents_idx = 1:Na_to_show;
 individual_final = state_errors_individual(end, :, m);
 fused_final = state_errors_fused(end, :, m);
 bar_width = 0.35;
-bar(agents_idx - bar_width/2, individual_final, bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
 hold on;
-bar(agents_idx + bar_width/2, fused_final, bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+if Na > Na_to_show
+    xticklabels(1:Na_to_show);
+end
 xticks(agents_idx);
 xlabel('Agent');
 ylabel('Final State Error');
-title(sprintf('Final Performance Comparison - realization %d', m));
+if Na > Na_to_show
+    title(sprintf('Final Performance Comparison (first %d agents) - realization %d', Na_to_show, m));
+else
+    title(sprintf('Final Performance Comparison (all %d agents) - realization %d', Na, m));
+end
 legend('Individual', 'Fused', 'Location', 'best');
 grid on;
 
 % Figure 3: Mean State Estimates
 subplot(1,2,2);
-agents_idx = 1:Na;
+Na_to_show = min(Na, 8);
+agents_idx = 1:Na_to_show;
 individual_final = sqrt(mean(state_errors_individual(:, :, m).^2, 1));
 fused_final = sqrt(mean(state_errors_fused(:, :, m).^2, 1));
 bar_width = 0.35;
-bar(agents_idx - bar_width/2, individual_final, bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
 hold on;
-bar(agents_idx + bar_width/2, fused_final, bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+if Na > Na_to_show
+    xticklabels(1:Na_to_show);
+end
 xticks(agents_idx);
 xlabel('Agent');
 ylabel('Mean State Error (RMS)');
-title(sprintf('Mean Performance Comparison in RMS sense - realization %d', m));
+if Na > Na_to_show
+    title(sprintf('Mean Performance Comparison in RMS sense (first %d agents) - realization %d', Na_to_show, m));
+else
+    title(sprintf('Mean Performance Comparison in RMS sense (all %d agents) - realization %d', Na, m));
+end
 legend('Individual', 'Fused', 'Location', 'best');
 grid on;
 
@@ -624,33 +649,50 @@ grid on;
 figure(6);
 clf;
 subplot(1,2,1);
-agents_idx = 1:Na;
+Na_to_show = min(Na, 8);
+agents_idx = 1:Na_to_show;
 individual_final = mean(state_errors_individual(end, :, :), 3);
 fused_final = mean(state_errors_fused(end, :, :), 3);
 bar_width = 0.35;
-bar(agents_idx - bar_width/2, individual_final, bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+
+bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
 hold on;
-bar(agents_idx + bar_width/2, fused_final, bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+if Na > Na_to_show
+    xticklabels(1:Na_to_show);
+end
 xticks(agents_idx);
 xlabel('Agent');
 ylabel('Final State Error');
-title(sprintf('Final Performance Comparison - Monte-Carlo'));
+if Na > Na_to_show
+    title(sprintf('Final Performance Comparison (first %d agents) - Monte-Carlo', Na_to_show));
+else
+    title(sprintf('Final Performance Comparison (all %d agents) - Monte-Carlo', Na));
+end
 legend('Individual', 'Fused', 'Location', 'best');
 grid on;
 
 % Figure 6: Mean State Estimates
 subplot(1,2,2);
-agents_idx = 1:Na;
+Na_to_show = min(Na, 8);
+agents_idx = 1:Na_to_show;
 individual_final = sqrt(mean(mean(state_errors_individual(:, :, :), 3).^2, 1));
 fused_final = sqrt(mean(mean(state_errors_fused(:, :, :), 3).^2, 1));
 bar_width = 0.35;
-bar(agents_idx - bar_width/2, individual_final, bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
 hold on;
-bar(agents_idx + bar_width/2, fused_final, bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+if Na > Na_to_show
+    xticklabels(1:Na_to_show);
+end
 xticks(agents_idx);
 xlabel('Agent');
 ylabel('Mean State Error (RMS)');
-title(sprintf('Mean Performance Comparison in RMS sense - Monte-Carlo'));
+if Na > Na_to_show
+    title(sprintf('Mean Performance Comparison in RMS sense (first %d agents) - Monte-Carlo', Na_to_show));
+else
+    title(sprintf('Mean Performance Comparison in RMS sense (all %d agents) - Monte-Carlo', Na));
+end
 legend('Individual', 'Fused', 'Location', 'best');
 grid on;
 

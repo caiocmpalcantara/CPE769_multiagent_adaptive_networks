@@ -6,6 +6,8 @@ addpath('./Utils/', ...
         './Technique/', ...
         './Technique/Kalman_inc')
 
+global DEBUG_MODE;
+DEBUG_MODE = false;
 %% Simulate a Trajectory
 addpath("./Technique/")
 

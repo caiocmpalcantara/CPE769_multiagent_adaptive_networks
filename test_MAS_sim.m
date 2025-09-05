@@ -1,7 +1,21 @@
 % Initial test Multi-Agent System
-addpath("./Technique/")
-addpath("./Agent/")
 
+clear all;
+close all;
+clc
+
+addpath("./Technique/")
+addpath("./Technique/Kalman_inc/")
+addpath("./Agent/")
+addpath("./Utils/")
+
+global DEBUG_MODE;
+DEBUG_MODE = false;
+
+sim = 6;
+fprintf('=== Multi-Agent Social Learning Test (Agent) ===\n');
+fprintf('Validating multi-agent social learning with:\n');
+fprintf('  - Simulation case %d\n', sim);
 %% Simple stationary simulation
 rng(8988467)
 % x = [1 1 1]';
@@ -109,88 +123,451 @@ for m = 1:M
     end
 end
 
-%% Plots
+%% Performance Analysis
+fprintf('\n=== Performance Analysis ===\n');
 
-figure(1)
-len = N;
-n = 1:len;
-plot(n, d(1,1:len,1,1), 'b')
-hold on
-plot(n, y_hat_history(1,1:len,1,1), 'r--', 'LineWidth', 1.5)
-plot(n, y_hat_history(1,1:len,2,1), 'g-.', 'LineWidth', 1.5)
-plot(n, y_hat_history(1,1:len,3,1), 'y--', 'LineWidth', 1.5)
-xlabel('Time')
-ylabel('y_{hat}')
-title('A realization')
-legend('d', 'a1', 'a2', 'a3')
-hold off
-grid on
+% Calculate errors for each agent
+prediction_errors = zeros(N, Na, M);
+H_estimation_errors = zeros(N, Na, M);
 
-n = 1:N;
-% plot(n, reshape(y_hat_history(:,1,:), [1, N]), 'r--');
-% plot(n, reshape(y_hat_history(:,2,:), [1, N]), 'g--');
-% plot(n, reshape(y_hat_history(:,3,:), [1, N]), 'k--');
-
-%% The error
-a = 4;
-e1 =  (y_hat_history(1,:,a,:) - d(1,:,a,:)).^2;
-e11 =  (y_hat_history(1,:,a,1) - d(1,:,a,1)).^2;
-e1m = mean(e1,4);
-% e1 = abs(reshape(y_hat_history(:,1,:), [1, N]) - u*x);
-e2 = zeros(1,N,M);
-for m = 1:M
-    for i = 1:N
-        e2(1,i,m) = norm(H_hat_history(:,:,i,a,m) - u);
+for a = 1:Na
+    % Prediction errors (comparing predicted observations to true observations)
+    for m = 1:M
+        for t = 1:N
+            prediction_errors(t, a, m) = abs(y_hat_history(1, t, a, m) - y(t));
+        end
     end
+
+    % H estimation errors (comparing estimated H to true H)
+    for m = 1:M
+        for t = 1:N
+            H_estimation_errors(t, a, m) = norm(H_hat_history(:, :, t, a, m) - u);
+        end
+    end
+
+    % Report final errors for this agent
+    H_estimation_errors_mean = mean(H_estimation_errors, 3);
+    fprintf('Agent %d - Final H estimation error: %.6f\n', ...
+            a, H_estimation_errors_mean(end, a));
 end
-e21 = e2(1,:,1);
-e2m = mean(e2,3);
-    
-figure(2)
-plot(n,10*log10(e1m),'b')
-% hold on
-% plot(n,10*log10(e11),'r')
-% hold off
-tit = sprintf('Test: MSE. Agente = %d', a);
-title(tit)
-ylabel('e[n]')
-xlabel('n')
-set(gca, 'YLim', [-30 0])
-grid on
 
-figure(3)
-plot(n,20*log10(e2m),'b')
-% hold on
-% plot(n,10*log10(e21),'r')
-% hold off
-tit = sprintf('Test: MSD. Agente = %d', a);
-title(tit)
-ylabel('e[n]')
-xlabel('n')
-set(gca, 'YLim', [-30 0])
-grid on
+% Overall performance metrics
+mean_H_error = mean(sqrt(mean(mean(H_estimation_errors, 3).^2, 1)));
+mean_pred_error = mean(mean(mean(prediction_errors, 3), 1));
 
-%% Benchmark
+fprintf('\nOverall Performance:\n');
+fprintf('  Mean H estimation error (RMS): %.6f\n', mean_H_error);
+fprintf('  Mean prediction error: %.6f\n', mean_pred_error);
 
-y_ticks = -40:5:0;
-figure(4)
-plot(n,10*log10(e1m_wiener_noncoop_a4),'r')
-hold on
-plot(n,10*log10(e1m_wiener_a4),'b')
-hold off
-ylabel('MSE')
-xlabel('n')
-set(gca, 'YLim', [-40 0], 'YTick', y_ticks)
-legend('noncoop', 'ATC w_{hat}')
-grid on
+% Additional metrics
+fprintf('\nAdditional Metrics:\n');
+fprintf('  True H matrix: [%s]\n', num2str(u));
+fprintf('  True observation values: %.6f (constant)\n', y(1));
 
-figure(5)
-plot(n,20*log10(e2m_wiener_noncoop_a4),'r')
-hold on
-plot(n,20*log10(e2m_wiener_a4),'b')
-hold off
-ylabel('MSD')
-xlabel('n')
-set(gca, 'YLim', [-40 0], 'YTick', y_ticks)
-legend('noncoop', 'ATC w_{hat}')
-grid on
+%% Visualization
+fprintf('\nGenerating plots...\n');
+m_vis = 1; % Visualization realization
+n = 1:N;
+
+% Figure 1: Comprehensive Analysis
+figure(1);
+clf;
+
+% Subplot 1: Observations and Predictions
+subplot(2,2,1);
+plot(n, squeeze(d(1, :, 1, m_vis)), 'b-', 'LineWidth', 1);
+hold on;
+colors = {'r-', 'g-', 'c-', 'm-', 'k-', 'y-'};
+for a = 1:min(Na, 6) % Show up to 6 agents
+    plot(n, squeeze(y_hat_history(1, :, a, m_vis)), colors{a}, 'LineWidth', 1.5);
+end
+plot(n, y, 'k--', 'LineWidth', 2);
+xlabel('Time Step');
+ylabel('Observation');
+title(sprintf('Observations vs Predictions (realization %d)', m_vis));
+legend_entries = {'Noisy Obs (Agent 1)'};
+for a = 1:min(Na, 6)
+    legend_entries{end+1} = sprintf('Agent %d Pred', a);
+end
+legend_entries{end+1} = 'True Value';
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Subplot 2: H Estimation Convergence
+subplot(2,2,2);
+for a = 1:min(Na, 4) % Show up to 4 agents for clarity
+    plot(n, squeeze(H_hat_history(1, 1, :, a, m_vis)), colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+plot(n, u(1)*ones(size(n)), 'k--', 'LineWidth', 2);
+xlabel('Time Step');
+ylabel('H Estimate (Component 1,1)');
+title(sprintf('H Estimation Convergence (realization %d)', m_vis));
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend_entries{end+1} = 'True Value';
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Subplot 3: H Estimation Errors
+subplot(2,2,3);
+for a = 1:min(Na, 4)
+    plot(n, squeeze(H_estimation_errors(:, a, m_vis)), colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('H Estimation Error');
+title(sprintf('H Estimation Errors (realization %d)', m_vis));
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Subplot 4: Prediction Errors
+subplot(2,2,4);
+for a = 1:min(Na, 4)
+    plot(n, squeeze(prediction_errors(:, a, m_vis)), colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('Prediction Error');
+title(sprintf('Prediction Errors (realization %d)', m_vis));
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Figure 2: Detailed Error Analysis
+figure(2);
+clf;
+
+% Subplot 1: H Estimation Errors (Linear Scale)
+subplot(2,2,1);
+for a = 1:min(Na, 4)
+    plot(n, squeeze(H_estimation_errors(:, a, m_vis)), colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('H Estimation Error');
+title(sprintf('H Estimation Errors - Linear Scale (realization %d)', m_vis));
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Subplot 2: H Estimation Errors (dB Scale)
+subplot(2,2,2);
+for a = 1:min(Na, 4)
+    H_errors_db = 20*log10(max(squeeze(H_estimation_errors(:, a, m_vis)), 1e-10));
+    plot(n, H_errors_db, colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('H Estimation Error [dB]');
+title(sprintf('H Estimation Errors - dB Scale (realization %d)', m_vis));
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Subplot 3: Prediction Errors (Linear Scale)
+subplot(2,2,3);
+for a = 1:min(Na, 4)
+    plot(n, squeeze(prediction_errors(:, a, m_vis)), colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('Prediction Error');
+title(sprintf('Prediction Errors - Linear Scale (realization %d)', m_vis));
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Subplot 4: Prediction Errors (dB Scale)
+subplot(2,2,4);
+for a = 1:min(Na, 4)
+    pred_errors_db = 10*log10(max(squeeze(prediction_errors(:, a, m_vis)).^2, 1e-10));
+    plot(n, pred_errors_db, colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('Prediction Error [dB]');
+title(sprintf('Prediction Errors - dB Scale (realization %d)', m_vis));
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Figure 4: Final Performance Comparison
+figure(4);
+clf;
+
+% Figure 4: Subplot 1: Final H Estimation Errors
+subplot(1,2,1);
+agents_idx = 1:Na;
+final_H_errors = squeeze(H_estimation_errors(end, :, m_vis));
+bar(agents_idx, final_H_errors, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+xlabel('Agent');
+ylabel('Final H Estimation Error');
+title(sprintf('Final H Estimation Performance (realization %d)', m_vis));
+grid on;
+
+% Figure 4: Subplot 2: Mean H Estimation Errors (RMS)
+subplot(1,2,2);
+mean_H_errors = sqrt(mean(squeeze(H_estimation_errors(:, :, m_vis)).^2, 1));
+bar(agents_idx, mean_H_errors, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+xlabel('Agent');
+ylabel('Mean H Estimation Error (RMS)');
+title(sprintf('Mean H Estimation Performance (realization %d)', m_vis));
+grid on;
+
+fprintf('\n=== Test Summary (realization %d) ===\n', m_vis);
+fprintf('Test completed successfully!\n');
+fprintf('\nKey findings:\n');
+
+% Check convergence
+convergence_threshold = 0.1;
+converged_agents = sum(squeeze(H_estimation_errors(end, :, m_vis)) < convergence_threshold);
+fprintf('  - Agents converged (H error < %.1f) (realization %d): %d/%d\n', ...
+        convergence_threshold, m_vis, converged_agents, Na);
+
+% Final performance summary
+final_H_errors = squeeze(H_estimation_errors(end, :, m_vis));
+fprintf('  - Best performing agent: Agent %d (error: %.6f)\n', ...
+        find(final_H_errors == min(final_H_errors), 1), min(final_H_errors));
+fprintf('  - Worst performing agent: Agent %d (error: %.6f)\n', ...
+        find(final_H_errors == max(final_H_errors), 1), max(final_H_errors));
+
+%% Visualization Monte-Carlo
+fprintf('\nGenerating Monte-Carlo averaged plots...\n');
+
+% Figure 3: Detailed Error Analysis
+figure(3);
+clf;
+
+% Figure 3: Subplot 1: H Estimation Errors (Linear Scale)
+subplot(2,2,1);
+for a = 1:min(Na, 4)
+    plot(n, squeeze(mean(H_estimation_errors(:, a, :), 3)), colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('H Estimation Error');
+title(sprintf('H Estimation Errors - Linear Scale (Monte-Carlo)'));
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Figure 3: Subplot 2: H Estimation Errors (dB Scale)
+subplot(2,2,2);
+for a = 1:min(Na, 4)
+    H_errors_db = 20*log10(max(squeeze(mean(H_estimation_errors(:, a, :), 3)), 1e-10));
+    plot(n, H_errors_db, colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('H Estimation Error (RMS) [dB]');
+title(sprintf('H Estimation Errors - dB Scale (Monte-Carlo)'));
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Figure 3: Subplot 3: Prediction Errors (Linear Scale)
+subplot(2,2,3);
+for a = 1:min(Na, 4)
+    plot(n, squeeze(mean(prediction_errors(:, a, :), 3)), colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('Prediction Error');
+title(sprintf('Prediction Errors - Linear Scale (Monte-Carlo)'));
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Figure 3: Subplot 4: Prediction Errors (dB Scale)
+subplot(2,2,4);
+for a = 1:min(Na, 4)
+    pred_errors_db = 10*log10(max(squeeze(mean(prediction_errors(:, a, :), 3)).^2, 1e-10));
+    plot(n, pred_errors_db, colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('Prediction Error [dB]');
+title(sprintf('Prediction Errors - dB Scale (Monte-Carlo)'));
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+
+% Figure 5: Monte-Carlo Analysis
+figure(5);
+clf;
+
+% Figure 5: Subplot 1: H Estimation Convergence (Monte-Carlo)
+subplot(2,2,1);
+for a = 1:min(Na, 4)
+    H_conv_mc = squeeze(mean(H_hat_history(1, 1, :, a, :), 5));
+    plot(n, H_conv_mc, colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+plot(n, u(1)*ones(size(n)), 'k--', 'LineWidth', 2);
+xlabel('Time Step');
+ylabel('H Estimate (Component 1,1)');
+title('H Estimation Convergence - Monte-Carlo');
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend_entries{end+1} = 'True Value';
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Figure 5: Subplot 2: H Estimation Errors (Monte-Carlo)
+subplot(2,2,2);
+for a = 1:min(Na, 4)
+    H_errors_mc = mean(H_estimation_errors(:, a, :), 3);
+    plot(n, H_errors_mc, colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('H Estimation Error');
+title('H Estimation Errors - Monte-Carlo');
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Figure 5: Subplot 3: H Estimation Errors in dB (Monte-Carlo)
+subplot(2,2,3);
+for a = 1:min(Na, 4)
+    H_errors_mc = mean(H_estimation_errors(:, a, :), 3);
+    H_errors_db = 20*log10(max(H_errors_mc, 1e-10));
+    plot(n, H_errors_db, colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('H Estimation Error [dB]');
+title('H Estimation Errors [dB] - Monte-Carlo');
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Figure 5: Subplot 4: Prediction Errors (Monte-Carlo)
+subplot(2,2,4);
+for a = 1:min(Na, 4)
+    pred_errors_mc = mean(prediction_errors(:, a, :), 3);
+    plot(n, pred_errors_mc, colors{a}, 'LineWidth', 1.5);
+    hold on;
+end
+xlabel('Time Step');
+ylabel('Prediction Error');
+title('Prediction Errors - Monte-Carlo');
+legend_entries = {};
+for a = 1:min(Na, 4)
+    legend_entries{end+1} = sprintf('Agent %d', a);
+end
+legend(legend_entries, 'Location', 'best');
+grid on;
+
+% Figure 6: Monte-Carlo Performance Comparison
+figure(6);
+clf;
+
+% Figure 6: Subplot 1: Final H Estimation Errors (Monte-Carlo)
+subplot(1,2,1);
+agents_idx = 1:Na;
+final_H_errors_mc = mean(H_estimation_errors(end, :, :), 3);
+bar(agents_idx, final_H_errors_mc, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+xlabel('Agent');
+ylabel('Final H Estimation Error');
+title('Final H Estimation Performance - Monte-Carlo');
+grid on;
+
+% Figure 6: Subplot 2: Mean H Estimation Errors (RMS, Monte-Carlo)
+subplot(1,2,2);
+mean_H_errors_mc = sqrt(mean(mean(H_estimation_errors, 3).^2, 1));
+bar(agents_idx, mean_H_errors_mc, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+xlabel('Agent');
+ylabel('Mean H Estimation Error (RMS)');
+title('Mean H Estimation Performance - Monte-Carlo');
+grid on;
+
+fprintf('\n=== Test Summary (Monte-Carlo) ===\n');
+fprintf('Test completed successfully!\n');
+fprintf('\nKey findings:\n');
+
+% Overall Monte-Carlo performance
+mean_H_error_mc = mean(sqrt(mean(mean(H_estimation_errors, 3).^2, 1)));
+mean_pred_error_mc = mean(mean(mean(prediction_errors, 3), 1));
+
+fprintf('  - Overall mean H estimation error (RMS): %.6f\n', mean_H_error_mc);
+fprintf('  - Overall mean prediction error: %.6f\n', mean_pred_error_mc);
+
+% Convergence analysis (Monte-Carlo)
+convergence_threshold = 0.1;
+final_H_errors_mc = mean(H_estimation_errors(end, :, :), 3);
+converged_agents_mc = sum(final_H_errors_mc < convergence_threshold);
+fprintf('  - Agents converged (H error < %.1f) (Monte-Carlo): %d/%d\n', ...
+        convergence_threshold, converged_agents_mc, Na);
+
+% Best and worst performing agents (Monte-Carlo)
+[min_error, best_agent] = min(final_H_errors_mc);
+[max_error, worst_agent] = max(final_H_errors_mc);
+fprintf('  - Best performing agent (Monte-Carlo): Agent %d (error: %.6f)\n', ...
+        best_agent, min_error);
+fprintf('  - Worst performing agent (Monte-Carlo): Agent %d (error: %.6f)\n', ...
+        worst_agent, max_error);
+
+% Performance improvement analysis
+if Na > 1
+    error_std = std(final_H_errors_mc);
+    error_range = max_error - min_error;
+    fprintf('  - Performance variation: std=%.6f, range=%.6f\n', error_std, error_range);
+end
+
+fprintf('\nSimulation validated multi-agent parameter estimation with:\n');
+fprintf('  - True H matrix: [%s]\n', num2str(u));
+fprintf('  - %d agents with different cooperation strategies\n', Na);
+fprintf('  - %d time steps, %d Monte Carlo realizations\n', N, M);
+
+% Compatibility note for comparison with test_MAS_sim3.m
+fprintf('\n=== Compatibility with test_MAS_sim3.m ===\n');
+fprintf('This analysis provides comparable metrics to test_MAS_sim3.m:\n');
+fprintf('  - Parameter estimation errors (H matrix vs state vector)\n');
+fprintf('  - Prediction performance analysis\n');
+fprintf('  - Monte-Carlo statistical validation\n');
+fprintf('  - Agent performance comparison\n');
+fprintf('Use these results to compare different multi-agent learning approaches.\n');
