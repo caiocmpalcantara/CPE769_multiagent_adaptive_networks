@@ -2,11 +2,12 @@
 % Refactored to work with current codebase implementation
 % Uses specified simulation parameters for multi-agent Kalman filtering
 
-clear all; 
+% clear all; 
 % close all;
-clc;
+% clc;
 global DEBUG_MODE;
 DEBUG_MODE = false;
+
 % Add necessary paths
 addpath("./Technique/")
 addpath("./Agent/")
@@ -29,6 +30,13 @@ try
         error('KF_diff class not found');
     end
 
+    % Test Rls2 availability
+    if exist('Rls2', 'class') == 8
+        fprintf('  ✓ Rls2 class available\n');
+    else
+        error('Rls2 class not found');
+    end
+
     % Test Agent2 availability
     if exist('Agent2', 'class') == 8
         fprintf('  ✓ Agent2 class available\n');
@@ -43,6 +51,20 @@ try
         error('General_Adapt_and_Fuse class not found');
     end
 
+    % Test Diff_KF_time_measure availability
+    if exist('Diff_KF_time_measure', 'class') == 8
+        fprintf('  ✓ Diff_KF_time_measure class available\n');
+    else
+        error('Diff_KF_time_measure class not found');
+    end
+
+    % Test Diff_KF_info_matrix availability
+    if exist('Diff_KF_info_matrix', 'class') == 8
+        fprintf('  ✓ Diff_KF_info_matrix class available\n');
+    else
+        error('Diff_KF_info_matrix class not found');
+    end
+
 catch exception
     fprintf('  ✗ Error: %s\n', exception.message);
     fprintf('Please ensure all required classes are in the MATLAB path.\n');
@@ -50,6 +72,10 @@ catch exception
 end
 
 %% Simulation Setup - Using Specified Parameters
+
+% Tech that will be used by all agents
+% tech = 'KF_diff';
+% tech = 'Rls2';
 
 % Simulation parameters (as specified)
 x_dim = 3;
@@ -102,15 +128,27 @@ for a = 1:Na
     % Create Kalman System Model
     model_sys = Linear_State('dim', x_dim, 'Q_matrix', Q, 'A_matrix', A);
 
-    % Create KF_diff technique
-    kf_technique = KF_diff('x_dim', x_dim, 'y_dim', y_dim, ...
-                          'H_matrix', H_matrix_init, 'R_matrix', R, ...
-                          'Pa_init', {'delta', 0.1}, ...
-                          'xa_init', {'initial_state', zeros(x_dim, 1)}, ...
-                          'system_model', model_sys);
+    % Create agent technique
+    switch tech
+        case 'KF_diff'
+            agent_technique = KF_diff('x_dim', x_dim, 'y_dim', y_dim, ...
+                                'H_matrix', H_matrix_init, 'R_matrix', R, ...
+                                'Pa_init', {'delta', 0.1}, ...
+                                'xa_init', {'initial_state', zeros(x_dim, 1)}, ...
+                                'system_model', model_sys);
+        case 'Rls2'
+            start_vals = struct('delta', 0.1, 'initial_state', zeros(x_dim, 1));
+            agent_technique = Rls2('x_dim', x_dim, 'y_dim', y_dim, ...
+                              'H_matrix', H_matrix_init, ...
+                              'lambda', 0.95, ...
+                              'start_vals', start_vals);
+
+        otherwise
+            error('Unsupported technique: %s', tech);
+    end
 
     % Create Agent2 (will use default fusion technique from constructor)
-    agents{a} = Agent2('agent_tech', kf_technique);
+    agents{a} = Agent2('agent_tech', agent_technique);
 
     fprintf('  Agent %d created with H = [%s]\n', a, num2str(H_matrix_init));
 end

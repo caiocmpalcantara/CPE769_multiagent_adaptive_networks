@@ -114,7 +114,8 @@ classdef Agent2 < handle
             
             % Apply Kalman filtering technique
             DEBUG(varargin)
-            [~,~,~,~,~,~,~,obj.y_hat] = obj.agent_technique.apply(varargin{:});
+            % [~,~,~,~,~,~,~,obj.y_hat] = obj.agent_technique.apply(varargin{:});
+            [obj.y_hat] = obj.agent_technique.apply(varargin{:});
             
             % FIXME: Wrong pattern breaking the OOP principles
             % % Update state estimates from Kalman filter
@@ -148,7 +149,8 @@ classdef Agent2 < handle
             % p.KeepUnmatched = true;
 
             obj.fusion_technique.social_learning_step('self_agent', obj, ...
-                                                      'dim', obj.agent_technique.x_dim);      
+                                                      'dim', obj.agent_technique.x_dim, ...
+                                                      'y_dim', obj.agent_technique.y_dim);      
 
             DEBUG(obj.getID())
             DEBUG(obj.fusion_results.state_estimate)
@@ -166,7 +168,11 @@ classdef Agent2 < handle
         end
 
         function update_agent_estimates(obj)
-            obj.fusion_technique.update_agent_technique_params(obj);
+            if ~isempty(obj.fusion_results.state_estimate)
+                obj.fusion_technique.update_agent_technique_params(obj);
+            else
+                error('Agent2: No fusion results to update agent estimates.')
+            end
         end
         
         function obj = add_agent(obj, agent, varargin)

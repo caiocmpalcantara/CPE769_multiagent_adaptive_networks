@@ -71,6 +71,10 @@ classdef Fusion_technique2 < handle
                 %     p.Results.dim = agent.agent_technique.x_dim;
                 end
                 
+                if ismethod(obj, 'apply_incremental_step') % Fusion techniques that need an incremental step before the fusion step
+                    obj.apply_incremental_step(varargin{:});
+                end
+
                 result = obj.apply(varargin{:});
                 % result = obj.apply('dim', p.Results.dim);
                 % Fusion_technique2.update_agent_technique_params(agent, result); % Este update tem que ser dado no agente, não faz sentido ser na técnica de fusão

@@ -1,3 +1,5 @@
 *.asv
 *.mat
 *.fig
+/For\ article\ -\ Pictures/
+*.txt

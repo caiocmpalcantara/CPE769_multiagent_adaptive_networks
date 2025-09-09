@@ -6,17 +6,18 @@ classdef Kalman2 < Agent_technique2
     properties (Access = public)
         system_model            % Kalman System Model
         % y_dim                   % Dimension of the observation -- is already in Agent_technique
-        xp_hat                  % State prior estimate
-        xa_hat                  % State posterior estimate
-        a                       % Innovation
+        % xp_hat                  % State prior estimate
+        % xa_hat                  % State posterior estimate
         last_T_sample_time      % Time between samples
         last_update_timestamp   % Timestamp of the last sample
+        y                       % Last observation
+        iteracts                % Number of iteractions
         % Statistics
+        a                       % Innovation
         Pp                      % Posterior Error covariance matrix
         Pa                      % Prior Error covariance matrix
         S                       % Innovation matrix
         K                       % Kalman gain matrix
-        iteracts                % Number of iteractions
     end
 
     methods (Abstract)
@@ -76,6 +77,7 @@ classdef Kalman2 < Agent_technique2
                 obj.xa_hat = obj.system_model.xa_init(p.Results.xa_init{:});
                 obj.xp_hat = obj.xa_hat;
                 % obj.y_dim = p.Results.y_dim;
+                obj.y = zeros(obj.y_dim, 1);
                 obj.a = zeros(obj.y_dim, 1);
                 obj.S = zeros(obj.y_dim);
                 obj.K = zeros(obj.system_model.dim, obj.y_dim); 
@@ -89,6 +91,7 @@ classdef Kalman2 < Agent_technique2
             DEBUG(obj.Pp)
             DEBUG(obj.xa_hat)
             DEBUG(obj.xp_hat)
+            DEBUG(obj.y)
             DEBUG(obj.a)
             DEBUG(obj.S)
             DEBUG(obj.K)
@@ -267,14 +270,14 @@ classdef Kalman2 < Agent_technique2
             obj.Pa = obj.update_Px(varargin{:}) + obj.update_Q_matrix(varargin{:});
 
             % Update observation
-            y = obj.update_obs(measurement);
+            obj.y = obj.update_obs(measurement);
 
             % Posterior
             S = obj.update_Py(varargin{:}) + obj.update_R_matrix(varargin{:});
             K = obj.update_Pxy(varargin{:}) / S;
             obj.Pp = obj.Pa - K * S * K';
             y_hat = obj.update_y_hat(varargin{:});
-            a = y - y_hat;
+            a = obj.y - y_hat;
             obj.xp_hat = obj.xa_hat + K * a;
 
             
@@ -288,68 +291,68 @@ classdef Kalman2 < Agent_technique2
             switch nargout
                 case 0
                     fprintf('No output requested in Kalman.\n');
-                case 1  % xp_hat
-                    varargout{1} = obj.xp_hat;
-                case 2 % xp_hat and xa_hat
-                    varargout{1} = obj.xp_hat;
-                    varargout{2} = obj.xa_hat;
+                case 1  % y_hat to maintain compatibility with others Agent_techniques
+                    varargout{1} = y_hat;
+                case 2 
+                    varargout{1} = y_hat;
+                    varargout{2} = obj.xp_hat;
                 case 3
-                    varargout{1} = obj.xp_hat;
-                    varargout{2} = obj.xa_hat;
-                    varargout{3} = obj.Pp;
+                    varargout{1} = y_hat;
+                    varargout{2} = obj.xp_hat;
+                    varargout{3} = obj.xa_hat;
                 case 4
-                    varargout{1} = obj.xp_hat;
-                    varargout{2} = obj.xa_hat;
-                    varargout{3} = obj.Pp;
-                    varargout{4} = obj.Pa;
+                    varargout{1} = y_hat;
+                    varargout{2} = obj.xp_hat;
+                    varargout{3} = obj.xa_hat;
+                    varargout{4} = obj.Pp;
                 case 5
-                    varargout{1} = obj.xp_hat;
-                    varargout{2} = obj.xa_hat;
-                    varargout{3} = obj.Pp;
-                    varargout{4} = obj.Pa;
-                    varargout{5} = obj.a;
+                    varargout{1} = y_hat;
+                    varargout{2} = obj.xp_hat;
+                    varargout{3} = obj.xa_hat;
+                    varargout{4} = obj.Pp;
+                    varargout{5} = obj.Pa;
                 case 6
-                    varargout{1} = obj.xp_hat;
-                    varargout{2} = obj.xa_hat;
-                    varargout{3} = obj.Pp;
-                    varargout{4} = obj.Pa;
-                    varargout{5} = obj.a;
-                    varargout{6} = obj.S;
+                    varargout{1} = y_hat;
+                    varargout{2} = obj.xp_hat;
+                    varargout{3} = obj.xa_hat;
+                    varargout{4} = obj.Pp;
+                    varargout{5} = obj.Pa;
+                    varargout{6} = obj.a;
                 case 7
-                    varargout{1} = obj.xp_hat;
-                    varargout{2} = obj.xa_hat;
-                    varargout{3} = obj.Pp;
-                    varargout{4} = obj.Pa;
-                    varargout{5} = obj.a;
-                    varargout{6} = obj.S;
-                    varargout{7} = obj.K;
+                    varargout{1} = y_hat;
+                    varargout{2} = obj.xp_hat;
+                    varargout{3} = obj.xa_hat;
+                    varargout{4} = obj.Pp;
+                    varargout{5} = obj.Pa;
+                    varargout{6} = obj.a;
+                    varargout{7} = obj.S;
                 case 8
-                    varargout{1} = obj.xp_hat;
-                    varargout{2} = obj.xa_hat;
-                    varargout{3} = obj.Pp;
-                    varargout{4} = obj.Pa;
-                    varargout{5} = obj.a;
-                    varargout{6} = obj.S;
-                    varargout{7} = obj.K;
-                    varargout{8} = y_hat;
+                    varargout{1} = y_hat;
+                    varargout{2} = obj.xp_hat;
+                    varargout{3} = obj.xa_hat;
+                    varargout{4} = obj.Pp;
+                    varargout{5} = obj.Pa;
+                    varargout{6} = obj.a;
+                    varargout{7} = obj.S;
+                    varargout{8} = obj.K;
                 otherwise
                     error('Kalman::apply : Too many outputs.')
             end
 
         end
 
-        function obj = update_agent_state_estimates(obj, agent)
-            agent.xp_hat = obj.xp_hat;
-            agent.xa_hat = obj.xa_hat;
-        end
+        % function obj = update_agent_state_estimates(obj, agent)
+        %     agent.xp_hat = obj.xp_hat;
+        %     agent.xa_hat = obj.xa_hat;
+        % end
 
-        function xa = get_prior_state(obj)
-            xa = obj.xa_hat;
-        end
+        % function xa = get_prior_state(obj)
+        %     xa = obj.xa_hat;
+        % end
 
-        function xp = get_posterior_state(obj)
-            xp = obj.xp_hat;
-        end
+        % function xp = get_posterior_state(obj)
+        %     xp = obj.xp_hat;
+        % end
 
         function set_priors(obj, varargin)
             p = inputParser;
