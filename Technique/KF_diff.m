@@ -174,14 +174,34 @@ classdef KF_diff < Kalman2
                 obj.H = p.Results.H_matrix;
                 H = obj.H; 
             catch exception
-                error('An error occurred: %s', exception.message); 
+                error('KF_diff: An error occurred: %s', exception.message); 
+            end
+        end
+
+         function obj = update_params(obj, varargin)
+            % @brief Update the Kalman filtering parameters based on new information.
+           
+            try
+                update_params@Kalman2(obj, varargin{:});
+                
+                ind = find(strcmp(varargin, 'H_matrix'));
+                if ~isempty(ind)
+                    obj.H = varargin{ind+1};
+                end
+
+            catch exception
+                error('KF_diff: An error occurred: %s', exception.message)
             end
         end
 
         % Method: reset - Reset the technique
         % ------------------------------------
-        function obj = reset(obj)
-            % Dummy for a while
-        end
+        % function obj = reset(obj)
+        %     % Dummy for a while
+        %     obj.Pp = obj.system_model.Pa_init('delta', obj.system_model.initial_params.delta);
+        %     obj.Pa = obj.Pp;
+        %     obj.xa_hat = obj.system_model.xa_init('initial_state', obj.system_model.initial_params.initial_state);
+        %     obj.xp_hat = obj.xa_hat;
+        % end
     end
 end

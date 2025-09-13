@@ -92,6 +92,60 @@ switch sim
 
         dims = [N M];
 
+    case 4
+        % Monte-Carlo simulation for state estimation with time-varying H_matrix
+        % Simulation parameters (as specified)
+        x_dim = 3;
+        y_dim = 1;
+
+
+        N = 500;
+        M = 10;    % Number of Monte Carlo realizations
+        Na = 1;  % Number of agents
+
+        % Assumption: same state dynamic for all agents, different noise observations
+        x_true = zeros(3,1);
+        x_true(:,1) = [-0.2 0.7 0.3]';   % The initial state
+
+        n = 1:N;
+        rng(8988466)
+
+
+        noisePowers_dB = [ ...
+        -27.6, -24.2, -10.3, -22.4, -26.6, ...
+        -17.1, -23.1, -21.7, -21.2, -25.5, ...
+        -13.3, -21.6, -25.7, -20.0, -10.4, ...
+        -15.7, -20.4, -11.6, -20.9, -24.7 ];
+
+        regressionPower_dB = [ ...
+        12.0, 10.4, 12.5, 12.5, 10.0, ...
+        12.6, 12.3, 12.2, 12.4, 11.5, ...
+        11.6, 11.4, 12.6, 12.6, 12.5, ...
+        10.4, 11.5, 12.1, 10.4, 12.2 ];
+
+
+        % Autoregressive model input (same to all agents)
+        u = zeros(3,N); % Kalman => H
+        rk = 0.95;
+        x_sd = .5;
+        x = x_sd * randn(3,N); % excitation
+        for i = 2:N
+            u(:,i) = rk * u(:,i-1)  + sqrt(1-rk^2) * x(:,i);
+        end
+
+        d = zeros(1,Na,N,M);
+        H = zeros(N,3);
+        y = zeros(1,N);
+        for n = 1:N
+            H(n,:) = u(:,n)';
+            y(n) = H(n,:)*x_true;
+            for a = 1:Na
+                d(:,a,n,:) = y(n) + 10^(noisePowers_dB(a)/10) * randn(1,1,1,M);
+            end
+        end
+
+        dims = [N M];
+
     otherwise
         fprintf('No simulation (sim) selected. Using default case 1.\n');
         sim = 1;

@@ -6,7 +6,7 @@
 % close all;
 % clc;
 global DEBUG_MODE;
-DEBUG_MODE = false;
+DEBUG_MODE = true;
 
 % Add necessary paths
 addpath("./Technique/")
@@ -14,6 +14,8 @@ addpath("./Agent/")
 addpath("./Technique/Kalman_inc/")
 addpath("./Utils/")
 
+diary log.txt; % Open diary file for writing
+diary on
 %% Verify Required Classes Exist
 fprintf('=== Multi-Agent Social Learning Test (Agent2) ===\n');
 fprintf('Verifying required classes...\n');
@@ -80,30 +82,66 @@ end
 % Simulation parameters (as specified)
 x_dim = 3;
 y_dim = 1;
-y_sd = 1;
 
-u = [1 1 1]';   % The "state"
-H = [1 1 1];
-N = 200;
-M = 100;    % Number of Monte Carlo realizations
+
+N = 50;
+M = 1;    % Number of Monte Carlo realizations
 Na = 6;  % Number of agents
+
+% Assumption: same state dynamic for all agents, different noise observations
+w = zeros(3,1);
+w(:,1) = [-0.2 0.7 0.3]';   % The initial state
+
 n = 1:N;
 rng(8988466)
-noise = y_sd * randn(Na,N,M);
 
-y = H*u;
 
-d = y + noise;
+noisePowers_dB = [ ...
+  -27.6, -24.2, -10.3, -22.4, -26.6, ...
+  -17.1, -23.1, -21.7, -21.2, -25.5, ...
+  -13.3, -21.6, -25.7, -20.0, -10.4, ...
+  -15.7, -20.4, -11.6, -20.9, -24.7 ];
 
-% M = 1;
+regressionPower_dB = [ ...
+  12.0, 10.4, 12.5, 12.5, 10.0, ...
+  12.6, 12.3, 12.2, 12.4, 11.5, ...
+  11.6, 11.4, 12.6, 12.6, 12.5, ...
+  10.4, 11.5, 12.1, 10.4, 12.2 ];
+
+
+% Autoregressive model input (same to all agents)
+u = zeros(x_dim,N); % Kalman => H
+rk = 0.95;
+x_sd = .5;
+x = x_sd * randn(3,N); % excitation
+for i = 2:N
+    % for index = 1:x_dim
+    %     u(index,i) = rk * u(index,i-1)  + sqrt(1-rk^2) * x(index,i);
+    % end
+    u(:,i) = rk * u(:,i-1)  + sqrt(1-rk^2) * x(:,i);
+end
+
+d = zeros(1,Na,N,M);
+H = zeros(N,3);
+y = zeros(1,N);
+for n = 1:N
+    H(n,:) = u(:,n)';
+    y(n) = H(n,:)*w;
+    for a = 1:Na
+        d(:,a,n,:) = y(n) + 10^(noisePowers_dB(a)/10) * randn(1,1,1,M);
+    end
+end
+
 dims = [N M];
 
 fprintf('Simulation parameters:\n');
 fprintf('  State dimension: %d\n', x_dim);
 fprintf('  Observation dimension: %d\n', y_dim);
-fprintf('  Noise std: %.1f\n', y_sd);
-fprintf('  True state: [%s]\n', num2str(u'));
-fprintf('  Observation matrix: [%s]\n', num2str(H));
+fprintf('  Noise std: %.3f\n', 10^(noisePowers_dB(a)/10));
+fprintf('  Regression power: %.3f\n', x_dim*x_sd^2);
+fprintf('  SNR: %.3f\n', 10*log10(x_dim*x_sd^2/10^(noisePowers_dB(a)/10)));
+fprintf('  True state: [%s]\n', num2str(w'));
+fprintf('  Observation matrix: [%s]\n', num2str(H(n,:)));
 fprintf('  Time steps: %d\n', N);
 fprintf('  Monte Carlo realizations: %d\n', M);
 
@@ -122,8 +160,8 @@ A = eye(x_dim);
 % Create agents with KF_diff technique
 for a = 1:Na
     % Use the same H matrix for all agents (constant observation model)
-    H_matrix_init = H;  % Use the specified H matrix
-    R = y_sd^2;  % Measurement noise variance
+    H_matrix_init = H(1,:);  % Use the specified H matrix
+    R(a) = (10^(noisePowers_dB(a)/10))^2;  % Measurement noise variance
 
     % Create Kalman System Model
     model_sys = Linear_State('dim', x_dim, 'Q_matrix', Q, 'A_matrix', A);
@@ -132,7 +170,7 @@ for a = 1:Na
     switch tech
         case 'KF_diff'
             agent_technique = KF_diff('x_dim', x_dim, 'y_dim', y_dim, ...
-                                'H_matrix', H_matrix_init, 'R_matrix', R, ...
+                                'H_matrix', H_matrix_init, 'R_matrix', R(a), ...
                                 'Pa_init', {'delta', 0.1}, ...
                                 'xa_init', {'initial_state', zeros(x_dim, 1)}, ...
                                 'system_model', model_sys);
@@ -140,7 +178,7 @@ for a = 1:Na
             start_vals = struct('delta', 0.1, 'initial_state', zeros(x_dim, 1));
             agent_technique = Rls2('x_dim', x_dim, 'y_dim', y_dim, ...
                               'H_matrix', H_matrix_init, ...
-                              'lambda', 0.95, ...
+                              'lambda', 0.98, ...
                               'start_vals', start_vals);
 
         otherwise
@@ -208,14 +246,17 @@ for a = 1:Na
                                         'neighbors_weights', weights);
             end
         otherwise
-            error('Unsupported fusion technique: %s', str_fusion_tech);
+            warning('Unsupported fusion technique: %s\n Selecting none.', str_fusion_tech);
+            fusion_tech = [];
     end
     % fusion_tech = General_Adapt_and_Fuse('neighbors', neighbor_agents, ...
     %                                     'neighbors_weights', weights);
 
     % Replace the default fusion technique with configured one
-    agents{a}.fusion_technique = fusion_tech;
-
+    if ~isempty(fusion_tech)
+        agents{a}.fusion_technique = fusion_tech;
+    end
+    
     fprintf('  Agent %d: %d neighbors (weights: %s)\n', ...
             a, n_neighbors, mat2str(weights, 3));
 end
@@ -241,58 +282,57 @@ for m = 1:M
         % if mod(t, 50) == 0
         %     fprintf('  Processing time step %d/%d\n', t, N);
         % end
-
+        DEBUG(sprintf('  Processing time step %d/%d\n', t, N));
         % Step 1: Self-learning step for all agents (individual learning)
+        DEBUG(sprintf('    Step 1: Self-learning step for all agents (individual learning)...\n'));
         for a = 1:Na
             try
-                % Apply individual Kalman filtering
-                % [agents{a}.y_hat] = agents{a}.agent_technique.apply('measurement', d(t), ...
-                %                                                    'timestamp', datetime('now'));
-                % [agents{a}.y_hat] = agents{a}.agent_technique.apply('measurement', d(a,t));
-
                 % Update agent's internal state estimates from Kalman filter
-                agents{a}.self_learning_step('measurement', d(a,t,m));
-                % agents{a}.xp_hat = agents{a}.agent_technique.xp_hat;
-                % agents{a}.xa_hat = agents{a}.agent_technique.xa_hat;
+                agents{a}.self_learning_step('measurement', d(1,a,t,m), 'H_matrix', H(t,:));
 
                 % Store individual estimates (before fusion)
                 individual_estimates(:, t, a, m) = agents{a}.xp_hat;
+                % fprintf('Individual estimate for agent %d at time %d: %s\n', a, t, mat2str(individual_estimates(:, t, a, m)));
 
             catch exception
-                fprintf('Error in self_learning_step for agent %d, at time %d, and realization %d: %s\n', a, t, m, exception.message);
+                % fprintf('Error in self_learning_step for agent %d, at time %d, and realization %d: %s\n', a, t, m, exception.message);
                 rethrow(exception);
             end
         end
         % GAMBI
-        if t == 1
+        % if t == 1
+        %     for a = 1:Na
+        %         agents{a}.fusion_results.state_estimate = agents{a}.xp_hat;
+        %         agents{a}.fusion_results.covariance_estimate = agents{a}.agent_technique.Pp;
+        %     end
+        % end
+        % % Step 2: Update agent state estimates based on latest information (this allows a synchro update for all agents) - Needed for diffusion techniques in Social_Learning in KF (Diff_KF_time_measure)
+        
+        if ismethod(agents{a}.fusion_technique, 'apply_incremental_step') % Fusion techniques that need an incremental step before the fusion step
+            DEBUG(sprintf('    Step 1.1: Update agent state estimates for diffusion techniques with an incremental step ...\n'));
             for a = 1:Na
-                agents{a}.fusion_results.state_estimate = agents{a}.xp_hat;
-                agents{a}.fusion_results.covariance_estimate = agents{a}.agent_technique.Pp;
+                agents{a}.fusion_technique.apply_incremental_step('self_agent', agents{a}, 'y_dim', y_dim);
             end
         end
-        % % Step 2: Update agent state estimates based on latest information (this allows a synchro update for all agents) - Needed for diffusion techniques in Social_Learning in KF (Diff_KF_time_measure)
         % for a = 1:Na
         %     agents{a}.update_agent_estimates();
         % end
 
         % Step 3: Social learning step for all agents (fusion step)
+        DEBUG(sprintf('    Step 2: Social learning step for all agents (fusion step)...\n'));
         for a = 1:Na
             try
                 % Check if fusion technique is properly set
-                if isempty(agents{a}.fusion_technique)
-                    fprintf('Warning: Agent %d has no fusion technique set, skipping social learning\n', a);
+                agents{a}.social_learning_step();
+                if isa(agents{a}.fusion_technique, 'Noon_coop')
+                    % fprintf('Warning: Agent %d has no fusion technique set, skipping social learning\n', a);
                     fused_estimates(:, t, a, m) = individual_estimates(:, t, a, m);
                     continue;
                 end
-
-                % Pass dim as first positional argument (required by current implementation)
-                % agents{a}.fusion_technique.social_learning_step(agents{a}, ...
-                %     agents{a}.agent_technique.x_dim);
-                agents{a}.social_learning_step();
-
-                % Store fused estimates (after fusion)
-                % fused_estimates(:, t, a) = agents{a}.xp_hat;
+                
                 fused_estimates(:, t, a, m) = agents{a}.fusion_results.state_estimate;
+                % fprintf('Fused estimate for agent %d at time %d: %s\n', a, t, mat2str(fused_estimates(:, t, a, m)'));
+                              
 
             catch exception
                 fprintf('Error in social_learning_step for agent %d, at time %d, and realization %d: %s\n', a, t, m, exception.message);
@@ -302,6 +342,7 @@ for m = 1:M
         end
         
         % Step 4: Update agent state estimates based on latest information (this allows a synchro update for all agents)
+        DEBUG(sprintf('    Step 3: Update agent state estimates based on latest information ...\n'));
         for a = 1:Na
             agents{a}.update_agent_estimates();
         end
@@ -324,7 +365,7 @@ for m = 1:M
         agents{a}.reset();
     end
     % Progress indicator
-    if mod(100*m/M, 5) == 0
+    if mod(100*m/M, 5) == 0 && M>1
         fprintf('  Completed %.0f%% of Monte-Carlo realizations\n', 100*m/M);
     end
 end
@@ -343,13 +384,18 @@ for a = 1:Na
     % y_pred = squeeze(y_hat_history(1, :, a))';
     % y_pred = squeeze(y_hat_history(1, :, a, :))';
     y_pred = y_hat_history(1, :, a, :);
-    prediction_errors(:, a, :) = abs(y_pred - y);
+    y_pred = reshape(y_pred, [N, M]);
+    for m = 1:M
+        for t = 1:N
+            prediction_errors(t, a, m) = abs(y_pred(t, m) - y(t));
+        end
+    end
 
     % State estimation errors (comparing estimated states to true state)
     for m = 1:M
         for t = 1:N
-            state_errors_individual(t, a, m) = norm(individual_estimates(:, t, a, m) - u);
-            state_errors_fused(t, a, m) = norm(fused_estimates(:, t, a, m) - u);
+            state_errors_individual(t, a, m) = norm(individual_estimates(:, t, a, m) - w);
+            state_errors_fused(t, a, m) = norm(fused_estimates(:, t, a, m) - w);
         end
     end
     state_errors_individual_mean = mean(state_errors_individual, 3);
@@ -377,7 +423,7 @@ fprintf('\nAdditional Metrics:\n');
 mc_pred_error = mean(prediction_errors(:, :, :),3);
 mean_pred_error = mean(mc_pred_error(end, :), 2); % Mean over agents
 fprintf('  MC and mean final prediction error: %.6f\n', mean_pred_error);
-fprintf('  True observation value: %.6f\n', y);
+fprintf('  True observation value: %.6f\n', y(end));
 
 %% Visualization
 fprintf('\nGenerating plots...\n');
@@ -385,14 +431,15 @@ m = 1;
 % Figure 1: Observations and Predictions
 figure(1);
 clf;
+n = 1:N;
 subplot(2,2,1);
-plot(n, d(1, :, 1, 1), 'b-', 'LineWidth', 1);
+plot(n, squeeze(d(1, 1, :, 1)), 'b-', 'LineWidth', 1);
 hold on;
 plot(n, squeeze(y_hat_history(1, :, 1, m)), 'r-', 'LineWidth', 1.5);
 plot(n, squeeze(y_hat_history(1, :, 2, m)), 'g-', 'LineWidth', 1.5);
 plot(n, squeeze(y_hat_history(1, :, 3, m)), 'c-', 'LineWidth', 1.5);
 plot(n, squeeze(y_hat_history(1, :, 4, m)), 'm-', 'LineWidth', 1.5);
-plot(n, y*ones(size(n)), 'k--', 'LineWidth', 2);
+plot(n, y, 'k--', 'LineWidth', 2);
 xlabel('Time Step');
 ylabel('Observation');
 title(sprintf('Observations vs Predictions (realization %d)', m));
@@ -405,7 +452,7 @@ for a = 1:Na
     plot(n, squeeze(fused_estimates(1, :, a, m)), 'LineWidth', 1.5);
     hold on;
 end
-plot(n, u(1)*ones(size(n)), 'k--', 'LineWidth', 2);
+plot(n, w(1)*ones(size(n)), 'k--', 'LineWidth', 2);
 xlabel('Time Step');
 ylabel('State Component 1');
 title(sprintf('Consensus Evolution (x_1), realization %d', m));
@@ -431,9 +478,9 @@ plot(n, squeeze(fused_estimates(1, :, 1, m)), 'r-', 'LineWidth', 1.5);
 hold on;
 plot(n, squeeze(fused_estimates(2, :, 1, m)), 'g-', 'LineWidth', 1.5);
 plot(n, squeeze(fused_estimates(3, :, 1, m)), 'c-', 'LineWidth', 1.5);
-plot(n, u(1)*ones(size(n)), 'r--', 'LineWidth', 1);
-plot(n, u(2)*ones(size(n)), 'g--', 'LineWidth', 1);
-plot(n, u(3)*ones(size(n)), 'c--', 'LineWidth', 1);
+plot(n, w(1)*ones(size(n)), 'r--', 'LineWidth', 1);
+plot(n, w(2)*ones(size(n)), 'g--', 'LineWidth', 1);
+plot(n, w(3)*ones(size(n)), 'c--', 'LineWidth', 1);
 xlabel('Time Step');
 ylabel('State Estimates');
 title(sprintf('State Convergence (Agent 1) - realization %d', m));
@@ -617,9 +664,9 @@ plot(n, squeeze(mean(fused_estimates(1, :, 1, :), 4)), 'r-', 'LineWidth', 1.5);
 hold on;
 plot(n, squeeze(mean(fused_estimates(2, :, 1, :), 4)), 'g-', 'LineWidth', 1.5);
 plot(n, squeeze(mean(fused_estimates(3, :, 1, :), 4)), 'c-', 'LineWidth', 1.5);
-plot(n, u(1)*ones(size(n)), 'r--', 'LineWidth', 1);
-plot(n, u(2)*ones(size(n)), 'g--', 'LineWidth', 1);
-plot(n, u(3)*ones(size(n)), 'c--', 'LineWidth', 1);
+plot(n, w(1)*ones(size(n)), 'r--', 'LineWidth', 1);
+plot(n, w(2)*ones(size(n)), 'g--', 'LineWidth', 1);
+plot(n, w(3)*ones(size(n)), 'c--', 'LineWidth', 1);
 xlabel('Time Step');
 ylabel('State Estimates');
 title(sprintf('State Convergence (Agent 1) - Monte-Carlo'));
@@ -800,7 +847,9 @@ converged_agents = sum(mean(state_errors_fused(end, :, :), 3) < convergence_thre
 fprintf('  - Agents converged (error < %.1f) (Monte-Carlo): %d/%d\n', convergence_threshold, converged_agents, Na);
 
 fprintf('\nSimulation validated multi-agent social learning with:\n');
-fprintf('  - Constant observation model H = [%s]\n', num2str(H));
-fprintf('  - True state u = [%s]\n', num2str(u'));
+fprintf('  - Constant observation model H = [%s]\n', num2str(H(t,:)));
+fprintf('  - True state w = [%s]\n', num2str(w'));
 fprintf('  - Distributed fusion using General_Adapt_and_Fuse\n');
 fprintf('  - %d agents with network topology\n', Na);
+
+diary off;

@@ -13,6 +13,7 @@ classdef Agent2 < handle
         neighbors               % Neighbors information
         fusion_technique        % Fusion technique
         neighbors_weights       % Weights for neighbor information
+        technique_results struct % Results from agent technique
         fusion_results struct   % Results from self and social learning
     end
     properties (SetAccess = private)
@@ -39,7 +40,7 @@ classdef Agent2 < handle
             check_agent_tech = @(x) isa(x, "Agent_technique2");
             addOptional(p, 'agent_tech', default_agent_tech, check_agent_tech);
 
-            default_fusion_tech = General_Adapt_and_Fuse();
+            default_fusion_tech = Noon_coop();
             check_fusion_tech = @(x) isa(x, "Fusion_technique2");
             addOptional(p, 'fusion_tech', default_fusion_tech, check_fusion_tech);
 
@@ -61,8 +62,9 @@ classdef Agent2 < handle
                 obj.neighbors = [];
                 obj.neighbors_weights = [];
                 obj.fusion_results = struct();
-                obj.fusion_results.state_estimate = [];
-                obj.fusion_results.covariance_estimate = [];
+                % obj.fusion_results.state_estimate = [];
+                % obj.fusion_results.covariance_estimate = [];
+                obj.technique_results = struct();
 
                 % % Ensure agent_technique dimensions match
                 % if obj.agent_technique.x_dim ~= obj.x_dim || obj.agent_technique.y_dim ~= obj.y_dim
@@ -87,10 +89,13 @@ classdef Agent2 < handle
             obj.xp_hat = zeros(obj.agent_technique.x_dim, 1);
             obj.xa_hat = zeros(obj.agent_technique.x_dim, 1);
             obj.last_measurement = [];
-            obj.fusion_results.state_estimate = [];
-            obj.fusion_results.covariance_estimate = [];
+            s = struct();
+            obj.fusion_results = s;
+            % obj.fusion_results.state_estimate = [];
+            % obj.fusion_results.covariance_estimate = [];
             % Reset the agent technique
             obj.agent_technique.reset();
+            obj.technique_results = struct();
         end
 
         function obj = self_learning_step(obj, varargin)
@@ -115,8 +120,9 @@ classdef Agent2 < handle
             % Apply Kalman filtering technique
             DEBUG(varargin)
             % [~,~,~,~,~,~,~,obj.y_hat] = obj.agent_technique.apply(varargin{:});
-            [obj.y_hat] = obj.agent_technique.apply(varargin{:});
-            
+            obj.agent_technique.update_params(varargin{:});
+            [obj.y_hat] = obj.agent_technique.apply(varargin{:}); %TODO: Refactoring the apply method in Technique to give an structure as output?
+            obj.technique_results = obj.agent_technique.get_params('state_estimate', 'covariance_estimate');
             % FIXME: Wrong pattern breaking the OOP principles
             % % Update state estimates from Kalman filter
             % switch class(obj.agent_technique)
@@ -147,14 +153,22 @@ classdef Agent2 < handle
 
             % p=inputParser;
             % p.KeepUnmatched = true;
-
-            obj.fusion_technique.social_learning_step('self_agent', obj, ...
-                                                      'dim', obj.agent_technique.x_dim, ...
-                                                      'y_dim', obj.agent_technique.y_dim);      
-
-            DEBUG(obj.getID())
-            DEBUG(obj.fusion_results.state_estimate)
-            DEBUG(obj.fusion_results.covariance_estimate)
+            try
+                
+                obj.fusion_technique.social_learning_step('self_agent', obj, ...
+                                                    'dim', obj.agent_technique.x_dim, ...
+                                                    'y_dim', obj.agent_technique.y_dim);
+                if isfield(obj.fusion_results, 'state_estimate')
+                    DEBUG(obj.fusion_results.state_estimate)
+                elseif isfield(obj.fusion_results, 'covariance_estimate')
+                    DEBUG(obj.fusion_results.covariance_estimate)
+                end
+                DEBUG(obj.getID())
+                
+            catch exception
+                error('Agent2: Error in social_learning_step - %s', exception.message);
+            end
+           
             % Social learning step - update based on neighbor information
             % For Kalman filters, this could update the observation matrix H
             % obj.H_hat = new_H_hat;
@@ -167,11 +181,37 @@ classdef Agent2 < handle
             % end
         end
 
-        function update_agent_estimates(obj)
-            if ~isempty(obj.fusion_results.state_estimate)
+        function update_agent_estimates(obj, varargin)
+            % @brief Update agent estimates based on fusion results
+            % p = inputParser;
+            % p.KeepUnmatched = true;
+            % addParameter(p, 'from', [], @(x) isstring(x));
+
+            % try
+            %     parse(p, varargin{:});
+            %     from = p.Results.from;
+            %     switch from
+            %         case 'technique'
+                        
+            %         case 'fusion'
+            %             obj.xp_hat = obj.fusion_results.state_estimate;
+            %             if isfield(obj.fusion_results, 'state_estimate') || isfield(obj.fusion_results, 'covariance_estimate')
+            %                 obj.fusion_technique.update_agent_technique_params(obj);
+            %             else
+            %                 warning('Agent2: No fusion results to update agent estimates.')
+            %             end
+            %         otherwise
+            %             error('Agent2: Unknown source for updating agent estimates.')
+            %     end
+            % catch exception
+            %     error('Agent2: Error in update_agent_estimates - %s', exception.message);
+            % end
+
+            % if ~isempty(obj.fusion_results.state_estimate)
+            if isfield(obj.fusion_results, 'state_estimate') || isfield(obj.fusion_results, 'covariance_estimate')
                 obj.fusion_technique.update_agent_technique_params(obj);
             else
-                error('Agent2: No fusion results to update agent estimates.')
+                warning('Agent2: No fusion results to update agent estimates.')
             end
         end
         
@@ -218,12 +258,32 @@ classdef Agent2 < handle
         end
 
         % Additional Kalman-specific methods
-        function P = get_posterior_covariance(obj)
-            % Get posterior error covariance matrix
-            try %isprop(obj.fusion_results, 'covariance_estimate') && 
+        function P = get_posterior_covariance(obj, varargin)
+        % @brief Get posterior error covariance matrix from agent technique results or from fusion results.
+        % options: 'technique', 'fusion'
+            p = inputParser;
+            p.KeepUnmatched = true;
+            
+            DEBUG(varargin)
+            
+            addParameter(p, 'from', 'whatever', @(x) ischar(x));
+        
+            try
+                parse(p, varargin{:});
                 
-                if ~isempty(obj.fusion_results.covariance_estimate) % TODO: do a more general algorithm, in order to get a matrix or in order to get a covariance estimate for all kind of filter?
-                    P = obj.fusion_results.covariance_estimate;
+                switch p.Results.from
+                    case 'technique'
+                        P = obj.agent_technique.get_params('covariance_estimate').covariance_estimate;
+                    case 'fusion'
+                        P = obj.fusion_results.covariance_estimate;
+                    
+                    otherwise
+                        % Consider the default value from fusion if available
+                        if isfield(obj.fusion_results, 'covariance_estimate') && ~isempty(obj.fusion_results.covariance_estimate)  % TODO: do a more general algorithm, in order to get a matrix or in order to get a covariance estimate for all kind of filter? %FIXME: Doing a GAMBI in order to do results quickly. Need a refactoring using technique_results
+                            P = obj.fusion_results.covariance_estimate;
+                        else
+                            P = obj.agent_technique.get_params('covariance_estimate').covariance_estimate;
+                        end
                 end
             catch exception
                 error('Agent2: Error in get_posterior_covariance - %s', exception.message);

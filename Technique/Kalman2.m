@@ -221,7 +221,7 @@ classdef Kalman2 < Agent_technique2
                 end
 
             catch exception
-                error('An error occurred: %s', exception.message)
+                error('Kalman2: An error occurred: %s', exception.message)
             end
         end
 
@@ -240,7 +240,7 @@ classdef Kalman2 < Agent_technique2
                 end
 
             catch exception
-                error('An error occurred: %s', exception.message)
+                error('Kalman2: An error occurred: %s', exception.message)
             end
         end
 
@@ -381,9 +381,9 @@ classdef Kalman2 < Agent_technique2
             obj.a = zeros(obj.x_dim, 1);
             obj.last_update_timestamp = [];
             obj.last_T_sample_time = [];
-            obj.Pp = obj.system_model.Pa_init('delta', obj.system_model.initial_params.delta);
+            obj.Pp = obj.system_model.Pa_init();
             obj.Pa = obj.Pp;
-            obj.xa_hat = obj.system_model.xa_init('initial_state', obj.system_model.initial_params.initial_state);
+            obj.xa_hat = obj.system_model.xa_init();
             obj.xp_hat = obj.xa_hat;   
         end
         

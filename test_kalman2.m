@@ -86,7 +86,7 @@ switch sim
         for n = 1:N
             H(n,:) = x(n:n+2);
             % y(n) = u*x(n:n+2)';
-            y(n) = H*u;
+            y(n) = H(n,:)*u;
             d(1,n,:) = y(n) + noise(1,n,:);
         end
 

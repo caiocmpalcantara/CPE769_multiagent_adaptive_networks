@@ -175,7 +175,7 @@ classdef Rls2 < Agent_technique2
                 obj.y_hat = zeros(obj.y_dim, 1);
                 obj.iteracts = 0;
             catch exception
-                error('An error occurred in RLS reset: %s', exception.message);
+                error('Rls2: An error occurred in RLS reset: %s', exception.message);
             end
         end
 

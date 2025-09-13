@@ -50,6 +50,8 @@ classdef Diff_KF_info_matrix < Fusion_technique2
                 if ~isempty(obj.neighbors)
                     parse(p, varargin{:});
 
+                    DEBUG(sprintf('    Agent %d\n', p.Results.self_agent.getID()))
+
                     % Incremental step
                     S_k_inv = zeros(p.Results.y_dim);
                     q_k = zeros(p.Results.y_dim, 1);
@@ -64,8 +66,8 @@ classdef Diff_KF_info_matrix < Fusion_technique2
                     obj.P_k = pinv(P_inv);
                     obj.phi_k = p.Results.self_agent.agent_technique.xa_hat + obj.P_k * (q_k - S_k_inv * p.Results.self_agent.agent_technique.xa_hat);
 
-                    DEBUG(obj.P_k)
                     DEBUG(obj.phi_k)
+                    DEBUG(obj.P_k)
 
                 end
             catch exception

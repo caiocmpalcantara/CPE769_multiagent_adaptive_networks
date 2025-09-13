@@ -50,21 +50,30 @@ classdef Diff_KF_time_measure < Fusion_technique2
                 if ~isempty(obj.neighbors)
                     parse(p, varargin{:});
 
+                    DEBUG(sprintf('    Agent %d\n', p.Results.self_agent.getID()))
+                    
                     % Incremental step
                     Re = zeros(p.Results.y_dim);
                     phi = p.Results.self_agent.get_posterior_state();
-                    P = p.Results.self_agent.get_posterior_covariance();
+                    DEBUG(phi)
+                    P = p.Results.self_agent.get_posterior_covariance('from', 'technique');
+                    DEBUG(P)
 
                     for ind = 1:length(obj.neighbors)
                         if obj.neighbors(ind).getID() ~= p.Results.self_agent.getID()
-                            Re(:,:) = obj.neighbors(ind).agent_technique.R + obj.neighbors(ind).agent_technique.H * obj.neighbors(ind).agent_technique.Pp * obj.neighbors(ind).agent_technique.H';
+                            % Re(:,:) = obj.neighbors(ind).agent_technique.R + obj.neighbors(ind).agent_technique.H * obj.neighbors(ind).agent_technique.Pp * obj.neighbors(ind).agent_technique.H';
+                            Re(:,:) = obj.neighbors(ind).agent_technique.R + obj.neighbors(ind).agent_technique.H * P * obj.neighbors(ind).agent_technique.H';
+                            DEBUG(Re)
                             phi = phi + P * obj.neighbors(ind).agent_technique.H' * pinv(Re) * (obj.neighbors(ind).agent_technique.y - obj.neighbors(ind).agent_technique.H * phi);
                             P = P - P * obj.neighbors(ind).agent_technique.H' * pinv(Re) * obj.neighbors(ind).agent_technique.H * P;
                         end
                     end
 
+                    
                     obj.phi_k = phi;
+                    DEBUG(obj.phi_k)
                     obj.P_k = P;
+                    DEBUG(obj.P_k)
                 end
             catch exception
                 if contains(exception.message, 'self_agent')
