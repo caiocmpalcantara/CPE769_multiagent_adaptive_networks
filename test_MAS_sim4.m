@@ -74,27 +74,73 @@ catch exception
 end
 
 %% Simulation Setup - Using Specified Parameters
-
-% Tech that will be used by all agents
-% tech = 'KF_diff';
-% tech = 'Rls2';
+% @brief Need to select the network topology, the technique and the fusion technique
+% @options: 
+%   - network topology: 'caio_net_topology', 'merched_net_topology'
+%   - technique: 'KF_diff', 'Rls2'
+%   - fusion technique: 'General_Adapt_and_Fuse', 'Diff_KF_time_measure', 'Diff_KF_info_matrix'
 
 % Simulation parameters (as specified)
-x_dim = 3;
-y_dim = 1;
+x_dim = 3;  % State dimension
+y_dim = 1;  % Observation dimension
+N = 50;     % Time steps
+M = 1;      % Number of Monte Carlo realizations
 
+% Define network topology (each agent knows subset of others + itself)
+switch net_topology
+    case 'caio_net_topology'
+        neighbor_lists = { % all including self
+            [1, 2, 3];      % Agent 1 neighbors 
+            [1, 2];         % Agent 2 neighbors
+            [1, 3, 4];      % Agent 3 neighbors
+            [3, 4, 5, 6];   % Agent 4 neighbors
+            [4, 5];         % Agent 5 neighbors
+            [4, 6];         % Agent 6 neighbors
+        };
+    case 'merched_net_topology'
+        neighbor_lists = { % all including self
+            [1, 4, 14];                 % Agent 1 neighbors
+            [2, 6, 8];                  % Agent 2 neighbors
+            [3, 4, 5, 13, 15];          % Agent 3 neighbors
+            [1, 3, 4, 15];              % Agent 4 neighbors
+            [4, 5, 10, 14, 15];         % Agent 5 neighbors
+            [6, 8, 9];                  % Agent 6 neighbors
+            [7, 12, 14, 18];            % Agent 7 neighbors
+            [2, 8, 9, 10];              % Agent 8 neighbors
+            [2, 6, 8, 9];               % Agent 9 neighbors
+            [5, 10, 13, 17];            % Agent 10 neighbors
+            [11, 17];                   % Agent 11 neighbors
+            [12, 14, 18];               % Agent 12 neighbors
+            [3, 5, 13];                 % Agent 13 neighbors
+            [5, 7, 12, 14, 15, 20];     % Agent 14 neighbors
+            [1, 3, 5, 14, 15];          % Agent 15 neighbors
+            [10, 16];                   % Agent 16 neighbors
+            [10, 16, 17];               % Agent 17 neighbors
+            [7, 14, 18, 20];            % Agent 18 neighbors
+            [3, 19];                    % Agent 19 neighbors
+            [7, 18, 20];                % Agent 20 neighbors
+        };
+        
+    otherwise % simple case
+        neighbor_lists = { % all including self
+            [1, 2, 3];     % Agent 1 neighbors
+            [1, 2, 4];     % Agent 2 neighbors
+            [1, 3, 4];     % Agent 3 neighbors
+            [2, 3, 4]      % Agent 4 neighbors
+        };
+        warning(strcat('Network topology not implemented. Using simple case. Possible options: ', ...
+                                                                    '''caio_net_topology''', ...
+                                                                    '''merched_net_topology'''));
+end
 
-N = 50;
-M = 1;    % Number of Monte Carlo realizations
-Na = 6;  % Number of agents
+figure(10)
+print_graph(neighbor_lists);
+
+Na = length(neighbor_lists);  % Number of agents
 
 % Assumption: same state dynamic for all agents, different noise observations
 w = zeros(3,1);
 w(:,1) = [-0.2 0.7 0.3]';   % The initial state
-
-n = 1:N;
-rng(8988466)
-
 
 noisePowers_dB = [ ...
   -27.6, -24.2, -10.3, -22.4, -26.6, ...
@@ -102,34 +148,59 @@ noisePowers_dB = [ ...
   -13.3, -21.6, -25.7, -20.0, -10.4, ...
   -15.7, -20.4, -11.6, -20.9, -24.7 ];
 
-regressionPower_dB = [ ...
-  12.0, 10.4, 12.5, 12.5, 10.0, ...
-  12.6, 12.3, 12.2, 12.4, 11.5, ...
-  11.6, 11.4, 12.6, 12.6, 12.5, ...
-  10.4, 11.5, 12.1, 10.4, 12.2 ];
-
-
 % Autoregressive model input (same to all agents)
-u = zeros(x_dim,N); % Kalman => H
-rk = 0.95;
-x_sd = .5;
-x = x_sd * randn(3,N); % excitation
-for i = 2:N
-    % for index = 1:x_dim
-    %     u(index,i) = rk * u(index,i-1)  + sqrt(1-rk^2) * x(index,i);
-    % end
-    u(:,i) = rk * u(:,i-1)  + sqrt(1-rk^2) * x(:,i);
-end
 
-d = zeros(1,Na,N,M);
-H = zeros(N,3);
-y = zeros(1,N);
-for n = 1:N
-    H(n,:) = u(:,n)';
-    y(n) = H(n,:)*w;
-    for a = 1:Na
-        d(:,a,n,:) = y(n) + 10^(noisePowers_dB(a)/10) * randn(1,1,1,M);
-    end
+rk = 0.95;
+rng(8988466)
+% Defining the excitation signal variance
+switch net_topology      
+    case 'merched_net_topology'
+        regressionPower_dB = [ ...
+            12.0, 10.4, 12.5, 12.5, 10.0, ...
+            12.6, 12.3, 12.2, 12.4, 11.5, ...
+            11.6, 11.4, 12.6, 12.6, 12.5, ...
+            10.4, 11.5, 12.1, 10.4, 12.2 ];
+        trace_I_M = 10.^(regressionPower_dB(1:Na)/10);
+        u_sd = sqrt(trace_I_M/x_dim);
+
+        x = zeros(x_dim,N,Na);
+        rng(8988466)
+        for a = 1:Na
+            x(:,:,a) = u_sd(a) .* randn(3,N); % excitation
+        end
+        u = zeros(x_dim,N,Na); % Kalman => H
+        for i = 2:N
+            u(:,i,a) = rk * u(:,i-1,a)  + sqrt(1-rk^2) * x(:,i,a);
+        end
+
+        d = zeros(1,Na,N,M);
+        H = zeros(N,3,Na);
+        y = zeros(N,Na);
+        for n = 1:N
+            for a = 1:Na
+                H(n,:,a) = u(:,n,a)';
+                y(n,a) = H(n,:,a)*w; % TODO: Refactor the y and H indexes in simulations below
+                d(:,a,n,:) = y(n,a) + 10^(noisePowers_dB(a)/10) * randn(1,1,1,M);
+            end
+        end
+
+    otherwise
+        u_sd = .5;
+        rng(8988466)
+        x = u_sd * randn(3,N); % excitation
+        u = zeros(x_dim,N); % Kalman => H
+        d = zeros(1,Na,N,M);
+        H = zeros(N,3,Na);
+        y = zeros(N,Na);
+        for n = 2:N
+            u(:,n) = rk * u(:,n-1)  + sqrt(1-rk^2) * x(:,n);
+            H(n,:,1) = u(:,n)';
+            y(n,:) = H(n,:,1)*w;
+            for a = 1:Na
+                d(:,a,n,:) = y(n,1) + 10^(noisePowers_dB(a)/10) * randn(1,1,1,M);
+                H(n,:,a) = H(n,:,1);
+            end
+        end
 end
 
 dims = [N M];
@@ -137,11 +208,16 @@ dims = [N M];
 fprintf('Simulation parameters:\n');
 fprintf('  State dimension: %d\n', x_dim);
 fprintf('  Observation dimension: %d\n', y_dim);
-fprintf('  Noise std: %.3f\n', 10^(noisePowers_dB(a)/10));
-fprintf('  Regression power: %.3f\n', x_dim*x_sd^2);
-fprintf('  SNR: %.3f\n', 10*log10(x_dim*x_sd^2/10^(noisePowers_dB(a)/10)));
+fprintf('  Noise std (per agent): [%s]\n', num2str(10.^(noisePowers_dB(1:Na)/10)));
+if strcmp(net_topology, 'merched_net_topology')
+    fprintf('  Regression power (per agent): [%s]\n', num2str(trace_I_M));
+    fprintf('  SNR (per agent) [dB]: [%s]\n', num2str(10*log10(trace_I_M./10.^(noisePowers_dB(1:Na)/10))));
+else
+    fprintf('  Regression power (per agent): [%s]\n', num2str(x_dim*u_sd^2));
+    fprintf('  SNR (per agent) [dB]: [%s]\n', num2str(10*log10(x_dim*u_sd^2./10.^(noisePowers_dB(1:Na)/10))));
+end
 fprintf('  True state: [%s]\n', num2str(w'));
-fprintf('  Observation matrix: [%s]\n', num2str(H(n,:)));
+% fprintf('  Observation matrix: [%s]\n', num2str(H(n,:)));
 fprintf('  Time steps: %d\n', N);
 fprintf('  Monte Carlo realizations: %d\n', M);
 
@@ -160,7 +236,7 @@ A = eye(x_dim);
 % Create agents with KF_diff technique
 for a = 1:Na
     % Use the same H matrix for all agents (constant observation model)
-    H_matrix_init = H(1,:);  % Use the specified H matrix
+    H_matrix_init = H(1,:,a);  % Use the specified H matrix
     R(a) = (10^(noisePowers_dB(a)/10))^2;  % Measurement noise variance
 
     % Create Kalman System Model
@@ -193,27 +269,6 @@ end
 
 %% Network Topology Setup - Configure Fusion Techniques
 fprintf('\nConfiguring fusion techniques for distributed neighbor management...\n');
-
-% Define network topology (each agent knows subset of others + itself)
-% Agent 1: connected to agents 1,2,3
-% Agent 2: connected to agents 1,2,4
-% Agent 3: connected to agents 1,3,4
-% Agent 4: connected to agents 2,3,4
-% neighbor_lists = {
-%     [1, 2, 3];     % Agent 1 neighbors (including self)
-%     [1, 2, 4];     % Agent 2 neighbors
-%     [1, 3, 4];     % Agent 3 neighbors
-%     [2, 3, 4]      % Agent 4 neighbors
-% };
-
-neighbor_lists = {
-    [1, 2, 3];   % Agent 1 neighbors (including self)
-    [1, 2];      % Agent 2 neighbors
-    [1, 3, 4];   % Agent 3 neighbors
-    [3, 4, 5, 6] % Agent 4 neighbors
-    [4, 5]       % Agent 5 neighbors
-    [4, 6]       % Agent 6 neighbors
-};
 
 % Setup fusion techniques and neighbor connections for each agent
 for a = 1:Na
@@ -288,7 +343,7 @@ for m = 1:M
         for a = 1:Na
             try
                 % Update agent's internal state estimates from Kalman filter
-                agents{a}.self_learning_step('measurement', d(1,a,t,m), 'H_matrix', H(t,:));
+                agents{a}.self_learning_step('measurement', d(1,a,t,m), 'H_matrix', H(t,:,a));
 
                 % Store individual estimates (before fusion)
                 individual_estimates(:, t, a, m) = agents{a}.xp_hat;
@@ -387,7 +442,7 @@ for a = 1:Na
     y_pred = reshape(y_pred, [N, M]);
     for m = 1:M
         for t = 1:N
-            prediction_errors(t, a, m) = abs(y_pred(t, m) - y(t));
+            prediction_errors(t, a, m) = abs(y_pred(t, m) - y(t,a));
         end
     end
 
@@ -423,7 +478,7 @@ fprintf('\nAdditional Metrics:\n');
 mc_pred_error = mean(prediction_errors(:, :, :),3);
 mean_pred_error = mean(mc_pred_error(end, :), 2); % Mean over agents
 fprintf('  MC and mean final prediction error: %.6f\n', mean_pred_error);
-fprintf('  True observation value: %.6f\n', y(end));
+% fprintf('  True observation value: %.6f\n', y(end));
 
 %% Visualization
 fprintf('\nGenerating plots...\n');
@@ -446,6 +501,7 @@ title(sprintf('Observations vs Predictions (realization %d)', m));
 legend('Noisy Observations from Agent 1', 'Agent 1 Pred', 'Agent 2 Pred', 'Agent 3 Pred', 'Agent 4 Pred', 'True Value', 'Location', 'best');
 grid on;
 
+figure(2)
 % Subfigure 2: Consensus Evolution
 subplot(2,2,2);
 for a = 1:Na
@@ -488,7 +544,7 @@ legend('x_1 estimate', 'x_2 estimate', 'x_3 estimate', 'x_1 true', 'x_2 true', '
 grid on;
 
 % Figure 2: State Individual vs Fused Estimation Errors (firsts 4 agents)
-figure(2);
+figure(3);
 clf;
 subplot(2,2,1);
 plot(n, state_errors_individual(:, 1, m), 'r--', 'LineWidth', 1);
@@ -573,7 +629,7 @@ legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'Location', 'best');
 grid on;
 
 % Figure 3: Final State Estimates
-figure(3);
+figure(4);
 clf;
 subplot(1,2,1);
 Na_to_show = min(Na, 8);
@@ -625,11 +681,11 @@ grid on;
 fprintf('\n=== Test Summary (realization %d) ===\n', m);
 fprintf('Test completed successfully!\n');
 fprintf('\nKey findings:\n');
-% if improvement > 0
-%     fprintf('  - Social learning improved performance by %.2f%%\n', improvement);
-% else
-%     fprintf('  - Social learning degraded performance by %.2f%%\n', abs(improvement));
-% end
+if improvement > 0
+    fprintf('  - Social learning improved performance by %.2f%%\n', improvement);
+else
+    fprintf('  - Social learning degraded performance by %.2f%%\n', abs(improvement));
+end
 
 % Calculate uncertainty reduction
 if any(P_trace_history(1, :, m) > 0)
@@ -651,205 +707,215 @@ fprintf('  - Agents converged (error < %.1f) (realization %d): %d/%d\n', converg
 
 
 %% Visualization Monte-Carlo
-fprintf('\nGenerating plots...\n');
-% m = 1;
-% Figure 1: Observations and Predictions
-figure(4);
-clf;
+if M>1    
+    fprintf('\nGenerating Monte-Carlo averaged plots...\n');
+    % m = 1;
+    % Figure 1: Observations and Predictions
+    figure(5);
+    clf;
 
 
-% Figure 4: State Convergence
-subplot(2,2,4);
-plot(n, squeeze(mean(fused_estimates(1, :, 1, :), 4)), 'r-', 'LineWidth', 1.5);
-hold on;
-plot(n, squeeze(mean(fused_estimates(2, :, 1, :), 4)), 'g-', 'LineWidth', 1.5);
-plot(n, squeeze(mean(fused_estimates(3, :, 1, :), 4)), 'c-', 'LineWidth', 1.5);
-plot(n, w(1)*ones(size(n)), 'r--', 'LineWidth', 1);
-plot(n, w(2)*ones(size(n)), 'g--', 'LineWidth', 1);
-plot(n, w(3)*ones(size(n)), 'c--', 'LineWidth', 1);
-xlabel('Time Step');
-ylabel('State Estimates');
-title(sprintf('State Convergence (Agent 1) - Monte-Carlo'));
-legend('x_1 estimate', 'x_2 estimate', 'x_3 estimate', 'x_1 true', 'x_2 true', 'x_3 true', 'Location', 'best');
-grid on;
+    % Figure 4: State Convergence
+    subplot(2,2,4);
+    plot(n, squeeze(mean(fused_estimates(1, :, 1, :), 4)), 'r-', 'LineWidth', 1.5);
+    hold on;
+    plot(n, squeeze(mean(fused_estimates(2, :, 1, :), 4)), 'g-', 'LineWidth', 1.5);
+    plot(n, squeeze(mean(fused_estimates(3, :, 1, :), 4)), 'c-', 'LineWidth', 1.5);
+    plot(n, w(1)*ones(size(n)), 'r--', 'LineWidth', 1);
+    plot(n, w(2)*ones(size(n)), 'g--', 'LineWidth', 1);
+    plot(n, w(3)*ones(size(n)), 'c--', 'LineWidth', 1);
+    xlabel('Time Step');
+    ylabel('State Estimates');
+    title(sprintf('State Convergence (Agent 1) - Monte-Carlo'));
+    legend('x_1 estimate', 'x_2 estimate', 'x_3 estimate', 'x_1 true', 'x_2 true', 'x_3 true', 'Location', 'best');
+    grid on;
 
-% Figure 5: State Individual vs Fused Estimation Errors (firsts 4 agents)
-figure(5);
-clf;
-subplot(2,2,1);
-plot(n, mean(state_errors_individual(:, 1, :), 3), 'r--', 'LineWidth', 1);
-hold on;
-plot(n, mean(state_errors_fused(:, 1, :), 3), 'r-.', 'LineWidth', 2);
-plot(n, mean(state_errors_individual(:, 2, :), 3), 'g--', 'LineWidth', 1);
-plot(n, mean(state_errors_fused(:, 2, :), 3), 'g-.', 'LineWidth', 2);
-plot(n, mean(state_errors_individual(:, 3, :), 3), 'c--', 'LineWidth', 1);
-plot(n, mean(state_errors_fused(:, 3, :), 3), 'c-.', 'LineWidth', 2);
-plot(n, mean(state_errors_individual(:, 4, :), 3), 'm--', 'LineWidth', 1);
-plot(n, mean(state_errors_fused(:, 4, :), 3), 'm-.', 'LineWidth', 2);
-xlabel('Time Step');
-ylabel('State Estimation Error');
-title(sprintf('Individual vs Fused State Errors (first 4 agents) - Monte-Carlo'));
-legend('Agent 1 Individual', 'Agent 1 Fused', 'Agent 2 Individual', 'Agent 2 Fused', 'Agent 3 Individual', 'Agent 3 Fused', 'Agent 4 Individual', 'Agent 4 Fused', 'Location', 'best');
-grid on;
+    % Figure 5: State Individual vs Fused Estimation Errors (firsts 4 agents)
+    figure(6);
+    clf;
+    subplot(2,2,1);
+    plot(n, mean(state_errors_individual(:, 1, :), 3), 'r--', 'LineWidth', 1);
+    hold on;
+    plot(n, mean(state_errors_fused(:, 1, :), 3), 'r-.', 'LineWidth', 2);
+    plot(n, mean(state_errors_individual(:, 2, :), 3), 'g--', 'LineWidth', 1);
+    plot(n, mean(state_errors_fused(:, 2, :), 3), 'g-.', 'LineWidth', 2);
+    plot(n, mean(state_errors_individual(:, 3, :), 3), 'c--', 'LineWidth', 1);
+    plot(n, mean(state_errors_fused(:, 3, :), 3), 'c-.', 'LineWidth', 2);
+    plot(n, mean(state_errors_individual(:, 4, :), 3), 'm--', 'LineWidth', 1);
+    plot(n, mean(state_errors_fused(:, 4, :), 3), 'm-.', 'LineWidth', 2);
+    xlabel('Time Step');
+    ylabel('State Estimation Error');
+    title(sprintf('Individual vs Fused State Errors (first 4 agents) - Monte-Carlo'));
+    legend('Agent 1 Individual', 'Agent 1 Fused', 'Agent 2 Individual', 'Agent 2 Fused', 'Agent 3 Individual', 'Agent 3 Fused', 'Agent 4 Individual', 'Agent 4 Fused', 'Location', 'best');
+    grid on;
 
-% subplot(2,2,1);
-% for a = 1:Na
-%     plot(n, state_errors_individual(:, a), '--', 'LineWidth', 1);
-%     hold on;
-% end
-% for a = 1:Na
-%     plot(n, state_errors_fused(:, a), '-.', 'LineWidth', 2);
-% end
-% xlabel('Time Step');
-% ylabel('State Estimation Error');
-% title('All Agents: Individual vs Fused Errors');
-% legend('Ind 1', 'Ind 2', 'Ind 3', 'Ind 4', 'Fused 1', 'Fused 2', 'Fused 3', 'Fused 4', 'Location', 'best');
-% grid on;
+    % subplot(2,2,1);
+    % for a = 1:Na
+    %     plot(n, state_errors_individual(:, a), '--', 'LineWidth', 1);
+    %     hold on;
+    % end
+    % for a = 1:Na
+    %     plot(n, state_errors_fused(:, a), '-.', 'LineWidth', 2);
+    % end
+    % xlabel('Time Step');
+    % ylabel('State Estimation Error');
+    % title('All Agents: Individual vs Fused Errors');
+    % legend('Ind 1', 'Ind 2', 'Ind 3', 'Ind 4', 'Fused 1', 'Fused 2', 'Fused 3', 'Fused 4', 'Location', 'best');
+    % grid on;
 
-% Figure 5: State Individual vs Fused Estimation Errors (firsts 4 agents) in dB
-subplot(2,2,2);
-plot(n, 10*log10(mean(state_errors_individual(:, 1, :), 3)), 'r-.', 'LineWidth', 1);
-hold on;
-plot(n, 10*log10(mean(state_errors_fused(:, 1, :), 3)), 'r-', 'LineWidth', 2);
-plot(n, 10*log10(mean(state_errors_individual(:, 2, :), 3)), 'g-.', 'LineWidth', 1);
-plot(n, 10*log10(mean(state_errors_fused(:, 2, :), 3)), 'g-', 'LineWidth', 2);
-plot(n, 10*log10(mean(state_errors_individual(:, 3, :), 3)), 'c-.', 'LineWidth', 1);
-plot(n, 10*log10(mean(state_errors_fused(:, 3, :), 3)), 'c-', 'LineWidth', 2);
-plot(n, 10*log10(mean(state_errors_individual(:, 4, :), 3)), 'm-.', 'LineWidth', 1);
-plot(n, 10*log10(mean(state_errors_fused(:, 4, :), 3)), 'm-', 'LineWidth', 2);
-xlabel('Time Step');
-ylabel('State Estimation Error');
-title(sprintf('Individual vs Fused State Errors [dB] (first 4 agents) - Monte-Carlo'));
-legend('Agent 1 Individual', 'Agent 1 Fused', 'Agent 2 Individual', 'Agent 2 Fused', 'Agent 3 Individual', 'Agent 3 Fused', 'Agent 4 Individual', 'Agent 4 Fused', 'Location', 'best');
-grid on;
+    % Figure 5: State Individual vs Fused Estimation Errors (firsts 4 agents) in dB
+    subplot(2,2,2);
+    plot(n, 10*log10(mean(state_errors_individual(:, 1, :), 3)), 'r-.', 'LineWidth', 1);
+    hold on;
+    plot(n, 10*log10(mean(state_errors_fused(:, 1, :), 3)), 'r-', 'LineWidth', 2);
+    plot(n, 10*log10(mean(state_errors_individual(:, 2, :), 3)), 'g-.', 'LineWidth', 1);
+    plot(n, 10*log10(mean(state_errors_fused(:, 2, :), 3)), 'g-', 'LineWidth', 2);
+    plot(n, 10*log10(mean(state_errors_individual(:, 3, :), 3)), 'c-.', 'LineWidth', 1);
+    plot(n, 10*log10(mean(state_errors_fused(:, 3, :), 3)), 'c-', 'LineWidth', 2);
+    plot(n, 10*log10(mean(state_errors_individual(:, 4, :), 3)), 'm-.', 'LineWidth', 1);
+    plot(n, 10*log10(mean(state_errors_fused(:, 4, :), 3)), 'm-', 'LineWidth', 2);
+    xlabel('Time Step');
+    ylabel('State Estimation Error');
+    title(sprintf('Individual vs Fused State Errors [dB] (first 4 agents) - Monte-Carlo'));
+    legend('Agent 1 Individual', 'Agent 1 Fused', 'Agent 2 Individual', 'Agent 2 Fused', 'Agent 3 Individual', 'Agent 3 Fused', 'Agent 4 Individual', 'Agent 4 Fused', 'Location', 'best');
+    grid on;
 
 
-% Figure 5: Prediction Errors
-subplot(2,2,3);
-% for a = 1:Na
-%     plot(n, prediction_errors(:, a), 'LineWidth', 1.5);
-%     hold on;
-% end
-plot(n, mean(prediction_errors(:, 1, :), 3), 'r-', 'LineWidth', 1.5);
-hold on;
-plot(n, mean(prediction_errors(:, 3, :), 3), 'c-', 'LineWidth', 1.5);
-plot(n, mean(prediction_errors(:, 4, :), 3), 'm-', 'LineWidth', 1.5);
-plot(n, mean(prediction_errors(:, 2, :), 3), 'g-', 'LineWidth', 1.5);
-xlabel('Time Step');
-ylabel('Prediction Error');
-title(sprintf('Prediction Errors by Agent (first 4 agents) - Monte-Carlo'));
-legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'Location', 'best');
-grid on;
+    % Figure 5: Prediction Errors
+    subplot(2,2,3);
+    % for a = 1:Na
+    %     plot(n, prediction_errors(:, a), 'LineWidth', 1.5);
+    %     hold on;
+    % end
+    plot(n, mean(prediction_errors(:, 1, :), 3), 'r-', 'LineWidth', 1.5);
+    hold on;
+    plot(n, mean(prediction_errors(:, 3, :), 3), 'c-', 'LineWidth', 1.5);
+    plot(n, mean(prediction_errors(:, 4, :), 3), 'm-', 'LineWidth', 1.5);
+    plot(n, mean(prediction_errors(:, 2, :), 3), 'g-', 'LineWidth', 1.5);
+    xlabel('Time Step');
+    ylabel('Prediction Error');
+    title(sprintf('Prediction Errors by Agent (first 4 agents) - Monte-Carlo'));
+    legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'Location', 'best');
+    grid on;
 
-% Figure 5: Prediction Errors [dB]
-subplot(2,2,4);
-% for a = 1:Na
-%     plot(n, prediction_errors(:, a), 'LineWidth', 1.5);
-%     hold on;
-% end
-plot(n, 10*log10(mean(prediction_errors(:, 1, :), 3)), 'r-', 'LineWidth', 1.5);
-hold on;
-plot(n, 10*log10(mean(prediction_errors(:, 2, :), 3)), 'g-', 'LineWidth', 1.5);
-plot(n, 10*log10(mean(prediction_errors(:, 3, :), 3)), 'c-', 'LineWidth', 1.5);
-plot(n, 10*log10(mean(prediction_errors(:, 4, :), 3)), 'm-', 'LineWidth', 1.5);
-xlabel('Time Step');
-ylabel('Prediction Error');
-title(sprintf('Prediction Errors by Agent [dB] (first 4 agents) - Monte-Carlo'));
-legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'Location', 'best');
-grid on;
+    % Figure 5: Prediction Errors [dB]
+    subplot(2,2,4);
+    % for a = 1:Na
+    %     plot(n, prediction_errors(:, a), 'LineWidth', 1.5);
+    %     hold on;
+    % end
+    plot(n, 10*log10(mean(prediction_errors(:, 1, :), 3)), 'r-', 'LineWidth', 1.5);
+    hold on;
+    plot(n, 10*log10(mean(prediction_errors(:, 2, :), 3)), 'g-', 'LineWidth', 1.5);
+    plot(n, 10*log10(mean(prediction_errors(:, 3, :), 3)), 'c-', 'LineWidth', 1.5);
+    plot(n, 10*log10(mean(prediction_errors(:, 4, :), 3)), 'm-', 'LineWidth', 1.5);
+    xlabel('Time Step');
+    ylabel('Prediction Error');
+    title(sprintf('Prediction Errors by Agent [dB] (first 4 agents) - Monte-Carlo'));
+    legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'Location', 'best');
+    grid on;
 
-% Figure 6: Final State Estimates
-figure(6);
-clf;
-title('Final State Estimates - Monte-Carlo');
-subplot(1,2,1);
-Na_to_show = min(Na, 8);
-agents_idx = 1:Na_to_show;
-individual_final = mean(state_errors_individual(end, :, :), 3);
-fused_final = mean(state_errors_fused(end, :, :), 3);
-bar_width = 0.35;
+    % Figure 6: Final State Estimates
+    figure(7);
+    clf;
+    title('Final State Estimates - Monte-Carlo');
+    subplot(1,2,1);
+    Na_to_show = min(Na, 8);
+    agents_idx = 1:Na_to_show;
+    individual_final = mean(state_errors_individual(end, :, :), 3);
+    fused_final = mean(state_errors_fused(end, :, :), 3);
+    bar_width = 0.35;
 
-bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
-hold on;
-bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
-if Na > Na_to_show
-    xticklabels(1:Na_to_show);
+    bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+    hold on;
+    bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+    if Na > Na_to_show
+        xticklabels(1:Na_to_show);
+    end
+    xticks(agents_idx);
+    xlabel('Agent');
+    ylabel('Final RMSD');
+    if Na > Na_to_show
+        title(sprintf('Final Performance Comparison (RMSD) (first %d agents)', Na_to_show));
+    else
+        title(sprintf('Final Performance Comparison (RMSD) (all %d agents)', Na));
+    end
+    legend('Individual', 'Fused', 'Location', 'best');
+    grid on;
+
+    % Figure 6: Mean State Estimates
+    subplot(1,2,2);
+    Na_to_show = min(Na, 8);
+    agents_idx = 1:Na_to_show;
+    individual_final = sqrt(mean(mean(state_errors_individual(:, :, :), 3).^2, 1));
+    fused_final = sqrt(mean(mean(state_errors_fused(:, :, :), 3).^2, 1));
+    bar_width = 0.35;
+    bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+    hold on;
+    bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+    if Na > Na_to_show
+        xticklabels(1:Na_to_show);
+    end
+    xticks(agents_idx);
+    xlabel('Agent');
+    ylabel('Overtime Mean RMSD');
+    if Na > Na_to_show
+        title(sprintf('Mean Performance Comparison (RMSD) (first %d agents)', Na_to_show));
+    else
+        title(sprintf('Mean Performance Comparison (RMSD) (all %d agents)', Na));
+    end
+    legend('Individual', 'Fused', 'Location', 'best');
+    grid on;
+
+    fprintf('\n=== Test Summary (Monte-Carlo) ===\n');
+    fprintf('Test completed successfully!\n');
+    fprintf('\nKey findings:\n');
+    if improvement > 0
+        fprintf('  - Social learning improved performance by %.2f%%\n', improvement);
+    else
+        fprintf('  - Social learning degraded performance by %.2f%%\n', abs(improvement));
+    end
+
+    % Calculate uncertainty reduction
+    if any(P_trace_history(1, :, m) > 0)
+        uncertainty_reduction = (mean(mean(P_trace_history(1, :, :),3)) - mean(mean(P_trace_history(end, :, :),3))) / mean(mean(P_trace_history(1, :, :),3)) * 100;
+        fprintf('  - Average uncertainty reduction (Monte-Carlo): %.2f%%\n', uncertainty_reduction);
+    else
+        fprintf('  - Uncertainty evolution: covariance traces available\n');
+    end
+
+    % Check consensus
+    final_states = squeeze(mean(fused_estimates(:, end, :, :), 4));
+    consensus_variance = var(final_states, 0, 2);
+    fprintf('  - Final state consensus variance (Monte-Carlo): [%.6f %.6f %.6f]\n', consensus_variance);
+
+    % Convergence analysis
+    convergence_threshold = 0.1;
+    converged_agents = sum(mean(state_errors_fused(end, :, :), 3) < convergence_threshold);
+    fprintf('  - Agents converged (error < %.1f) (Monte-Carlo): %d/%d\n', convergence_threshold, converged_agents, Na);
+
 end
-xticks(agents_idx);
-xlabel('Agent');
-ylabel('Final RMSD');
-if Na > Na_to_show
-    title(sprintf('Final Performance Comparison (RMSD) (first %d agents)', Na_to_show));
-else
-    title(sprintf('Final Performance Comparison (RMSD) (all %d agents)', Na));
-end
-legend('Individual', 'Fused', 'Location', 'best');
-grid on;
 
-% Figure 6: Mean State Estimates
-subplot(1,2,2);
-Na_to_show = min(Na, 8);
-agents_idx = 1:Na_to_show;
-individual_final = sqrt(mean(mean(state_errors_individual(:, :, :), 3).^2, 1));
-fused_final = sqrt(mean(mean(state_errors_fused(:, :, :), 3).^2, 1));
-bar_width = 0.35;
-bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
-hold on;
-bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
-if Na > Na_to_show
-    xticklabels(1:Na_to_show);
-end
-xticks(agents_idx);
-xlabel('Agent');
-ylabel('Overtime Mean RMSD');
-if Na > Na_to_show
-    title(sprintf('Mean Performance Comparison (RMSD) (first %d agents)', Na_to_show));
-else
-    title(sprintf('Mean Performance Comparison (RMSD) (all %d agents)', Na));
-end
-legend('Individual', 'Fused', 'Location', 'best');
-grid on;
-
-figure(7);
+figure(8);
 clf;
 final_msd_vec =  mean(mean(state_errors_fused, 3),2);
 plot(n, 20*log10(final_msd_vec), 'LineWidth', 1.5);
 xlabel('Time Step');
 ylabel('Final MSD');
-title(sprintf('Final MSD - Monte-Carlo: %d realizations', M));
+if M > 1
+    title(sprintf('Final MSD - Monte-Carlo: %d realizations', M));
+else
+    title('Final MSD');
+end
 grid on
 
-fprintf('\n=== Test Summary (Monte-Carlo) ===\n');
-fprintf('Test completed successfully!\n');
-fprintf('\nKey findings:\n');
-if improvement > 0
-    fprintf('  - Social learning improved performance by %.2f%%\n', improvement);
-else
-    fprintf('  - Social learning degraded performance by %.2f%%\n', abs(improvement));
-end
 
-% Calculate uncertainty reduction
-if any(P_trace_history(1, :, m) > 0)
-    uncertainty_reduction = (mean(mean(P_trace_history(1, :, :),3)) - mean(mean(P_trace_history(end, :, :),3))) / mean(mean(P_trace_history(1, :, :),3)) * 100;
-    fprintf('  - Average uncertainty reduction (Monte-Carlo): %.2f%%\n', uncertainty_reduction);
-else
-    fprintf('  - Uncertainty evolution: covariance traces available\n');
-end
-
-% Check consensus
-final_states = squeeze(mean(fused_estimates(:, end, :, :), 4));
-consensus_variance = var(final_states, 0, 2);
-fprintf('  - Final state consensus variance (Monte-Carlo): [%.6f %.6f %.6f]\n', consensus_variance);
-
-% Convergence analysis
-convergence_threshold = 0.1;
-converged_agents = sum(mean(state_errors_fused(end, :, :), 3) < convergence_threshold);
-fprintf('  - Agents converged (error < %.1f) (Monte-Carlo): %d/%d\n', convergence_threshold, converged_agents, Na);
-
-fprintf('\nSimulation validated multi-agent social learning with:\n');
-fprintf('  - Constant observation model H = [%s]\n', num2str(H(t,:)));
+fprintf('\n=====================================================\n');
+fprintf('Simulation validated multi-agent social learning with:\n');
+% fprintf('  - Constant observation model H = [%s]\n', num2str(H(t,:)));
 fprintf('  - True state w = [%s]\n', num2str(w'));
-fprintf('  - Distributed fusion using General_Adapt_and_Fuse\n');
+fprintf('  - Agent technique:  %s\n', class(agents{1}.agent_technique));
+fprintf('  - Distributed fusion: %s\n', class(agents{1}.fusion_technique));
 fprintf('  - %d agents with network topology\n', Na);
 
 diary off;

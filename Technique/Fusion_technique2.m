@@ -30,7 +30,7 @@ classdef Fusion_technique2 < handle
                 if ~isempty(neighbors) && ~isempty(neighbors_weights)
                     if length(neighbors) ~= length(neighbors_weights)
                         error('Fusion_technique2: Error in constructor - Number of neighbors must match number of weights.');
-                    elseif sum(neighbors_weights) ~= 1
+                    elseif sum(neighbors_weights) > 1+1e-5 && sum(neighbors_weights) < 1-1e-5
                         error('Fusion_technique2: Error in constructor - Weights must sum to 1.');
                     end
                 end
