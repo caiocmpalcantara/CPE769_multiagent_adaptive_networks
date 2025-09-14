@@ -10,8 +10,8 @@ addpath("./Technique/Kalman_inc/")
 
 fprintf('=== Testing Fusion Technique Parameter Passing Fix ===\n');
 
-%% Test 1: Create Agent2 with KF_diff
-fprintf('\nTest 1: Creating Agent2 with KF_diff...\n');
+%% Test 1: Create Agent with KF
+fprintf('\nTest 1: Creating Agent with KF...\n');
 
 try
     % System model setup
@@ -21,24 +21,24 @@ try
     A = eye(x_dim);
     model_sys = Linear_State('dim', x_dim, 'Q_matrix', Q, 'A_matrix', A);
     
-    % Create KF_diff technique
+    % Create KF technique
     H_matrix = [1 0 0];
     R = 0.04;  % y_sd^2 = 0.2^2
-    kf_technique = KF_diff('x_dim', x_dim, 'y_dim', y_dim, ...
+    kf_technique = KF('x_dim', x_dim, 'y_dim', y_dim, ...
                           'H_matrix', H_matrix, 'R_matrix', R, ...
                           'Pa_init', {'delta', 0.1}, ...
                           'xa_init', {'initial_state', zeros(x_dim, 1)}, ...
                           'system_model', model_sys);
     
-    % Create Agent2
-    agent1 = Agent2('agent_tech', kf_technique);
-    agent2 = Agent2('agent_tech', kf_technique);
+    % Create Agent
+    agent1 = Agent('agent_tech', kf_technique);
+    agent = Agent('agent_tech', kf_technique);
     
-    fprintf('  ✓ Agent2 instances created successfully\n');
-    fprintf('  ✓ Agent1 ID: %d, Agent2 ID: %d\n', agent1.getID(), agent2.getID());
+    fprintf('  ✓ Agent instances created successfully\n');
+    fprintf('  ✓ Agent1 ID: %d, Agent ID: %d\n', agent1.getID(), agent.getID());
     
 catch ME
-    fprintf('  ✗ Error creating Agent2: %s\n', ME.message);
+    fprintf('  ✗ Error creating Agent: %s\n', ME.message);
     return;
 end
 
@@ -47,7 +47,7 @@ fprintf('\nTest 2: Setting up fusion technique...\n');
 
 try
     % Create neighbor list (each agent includes itself)
-    neighbors = [agent1; agent2];
+    neighbors = [agent1; agent];
     weights = [0.5, 0.5];  % Equal weighting
     
     % Create fusion technique
@@ -56,7 +56,7 @@ try
     
     % Set fusion techniques
     agent1.fusion_technique = fusion_tech1;
-    agent2.fusion_technique = fusion_tech2;
+    agent.fusion_technique = fusion_tech2;
     
     fprintf('  ✓ Fusion techniques created and assigned\n');
     fprintf('  ✓ Each agent has %d neighbors with weights: %s\n', ...
@@ -97,23 +97,23 @@ try
     % First do a self-learning step to have some state
     measurement = 0.5;  % Simple test measurement
     [agent1.y_hat] = agent1.agent_technique.apply('measurement', measurement);
-    [agent2.y_hat] = agent2.agent_technique.apply('measurement', measurement);
+    [agent.y_hat] = agent.agent_technique.apply('measurement', measurement);
     
     % Update agent internal states
     agent1.xp_hat = agent1.agent_technique.xp_hat;
-    agent2.xp_hat = agent2.agent_technique.xp_hat;
+    agent.xp_hat = agent.agent_technique.xp_hat;
     
     fprintf('  ✓ Self-learning step completed\n');
     fprintf('  ✓ Agent1 state: %s\n', mat2str(agent1.xp_hat', 3));
-    fprintf('  ✓ Agent2 state: %s\n', mat2str(agent2.xp_hat', 3));
+    fprintf('  ✓ Agent state: %s\n', mat2str(agent.xp_hat', 3));
     
     % Now test social learning step with fixed parameter passing
     agent1.fusion_technique.social_learning_step(agent1, 'dim', x_dim);
-    agent2.fusion_technique.social_learning_step(agent2, 'dim', x_dim);
+    agent.fusion_technique.social_learning_step(agent, 'dim', x_dim);
     
     fprintf('  ✓ Social learning step completed successfully\n');
     fprintf('  ✓ Agent1 fused state: %s\n', mat2str(agent1.xp_hat', 3));
-    fprintf('  ✓ Agent2 fused state: %s\n', mat2str(agent2.xp_hat', 3));
+    fprintf('  ✓ Agent fused state: %s\n', mat2str(agent.xp_hat', 3));
     
 catch ME
     fprintf('  ✗ Error in social learning step: %s\n', ME.message);
@@ -129,8 +129,8 @@ fprintf('\nTest 5: Verifying fusion effect...\n');
 
 try
     % Check if states are closer after fusion (they should converge)
-    state_diff_before = norm(agent1.agent_technique.xp_hat - agent2.agent_technique.xp_hat);
-    state_diff_after = norm(agent1.xp_hat - agent2.xp_hat);
+    state_diff_before = norm(agent1.agent_technique.xp_hat - agent.agent_technique.xp_hat);
+    state_diff_after = norm(agent1.xp_hat - agent.xp_hat);
     
     fprintf('  ✓ State difference before fusion: %.6f\n', state_diff_before);
     fprintf('  ✓ State difference after fusion: %.6f\n', state_diff_after);
@@ -150,7 +150,7 @@ end
 fprintf('\n=== Test Summary ===\n');
 fprintf('✓ All critical issues have been fixed:\n');
 fprintf('  ✓ Parameter passing to General_Adapt_and_Fuse.apply() works with name-value pairs\n');
-fprintf('  ✓ Agent2.fusion_technique property is properly initialized\n');
+fprintf('  ✓ Agent.fusion_technique property is properly initialized\n');
 fprintf('  ✓ Social learning workflow executes without errors\n');
 fprintf('  ✓ Fusion technique correctly updates agent states\n');
 fprintf('\nThe test_MAS_sim3.m script should now run successfully!\n');

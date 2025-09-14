@@ -1,11 +1,11 @@
-classdef Noon_coop < Fusion_technique2
+classdef Noon_coop < Fusion_technique
     properties
         
     end
 
     methods
         function obj = Noon_coop(varargin)
-            obj@Fusion_technique2(varargin{:});
+            obj@Fusion_technique(varargin{:});
         end
 
         function s = apply(obj, varargin)

@@ -1,4 +1,4 @@
-classdef General_Adapt_and_Fuse < Fusion_technique2
+classdef General_Adapt_and_Fuse < Fusion_technique
     properties
         % agent_vec
         % fusion_strategy     % Strategy for fusion: 'consensus', 'weighted', 'covariance_based'
@@ -8,7 +8,7 @@ classdef General_Adapt_and_Fuse < Fusion_technique2
 
     methods
         function obj = General_Adapt_and_Fuse(varargin)
-            obj@Fusion_technique2(varargin{:});
+            obj@Fusion_technique(varargin{:});
             
             % p = inputParser;
             % p.KeepUnmatched = true;
@@ -41,7 +41,7 @@ classdef General_Adapt_and_Fuse < Fusion_technique2
             p = inputParser;
             p.KeepUnmatched = true;
 
-            % addParameter(p, 'self_agent', [], @(x) isa(x, 'Agent2'));
+            % addParameter(p, 'self_agent', [], @(x) isa(x, 'Agent'));
             addParameter(p, 'dim', [], @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1)==0));
             
             s = struct();
@@ -57,7 +57,7 @@ classdef General_Adapt_and_Fuse < Fusion_technique2
 
                         % switch class(obj.neighbors(ind).agent_technique)
                         %     % TODO: Do the inv more efficient in the futere
-                        %     case 'Kalman2'
+                        %     case 'Kalman'
                         %         P_inv = P_inv + obj.neighbors_weights(ind) * inv(obj.neighbors(ind).agent_technique.Pp);
                         %     case 'Lms'
                         %     case 'Rls'
@@ -77,7 +77,7 @@ classdef General_Adapt_and_Fuse < Fusion_technique2
                         A = obj.neighbors_weights(ind) * P / obj.neighbors(ind).agent_technique.get_params('covariance_estimate').covariance_estimate;
 
                         % switch class(obj.neighbors(ind).agent_technique)
-                        %     case 'Kalman2'
+                        %     case 'Kalman'
                         %         % A(:,:,ind) = obj.neighbors_weights(ind) * P / obj.neighbors(ind).agent_technique.Pp; 
                         %         A = obj.neighbors_weights(ind) * P / obj.neighbors(ind).agent_technique.Pp;
                         %     case 'Lms'

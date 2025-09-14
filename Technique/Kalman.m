@@ -1,5 +1,5 @@
-classdef Kalman2 < Agent_technique2
-    % Class: Kalman2 - Represents the General Kalman filtering technique (abstract)
+classdef Kalman < Agent_technique
+    % Class: Kalman - Represents the General Kalman filtering technique (abstract)
     % This Kalman assumption is that the System Model is always linear, so the system_model can define every
     % kind of possible models and contain the every system parameters.
     % In that sense, the Kalman filtering technique will only deal with Sensor Model in its own way (concrete class).
@@ -34,11 +34,11 @@ classdef Kalman2 < Agent_technique2
     end
 
     methods
-        function obj = Kalman2(varargin)
-            % obj = Kalman2(pos0, pos1, t0, t1, range_sd, bearing_sd)
+        function obj = Kalman(varargin)
+            % obj = Kalman(pos0, pos1, t0, t1, range_sd, bearing_sd)
             
             DEBUG(varargin)
-            obj@Agent_technique2(varargin{:}); % TODO: Create a arugment fusion that captures the system model x dimension ??? What does come first?
+            obj@Agent_technique(varargin{:}); % TODO: Create a arugment fusion that captures the system model x dimension ??? What does come first?
 
             % DEBUG(obj.y_dim)
 
@@ -65,7 +65,7 @@ classdef Kalman2 < Agent_technique2
             check_xa_init = @(x) isa(x, 'cell');
             addOptional(p, 'xa_init', default_xa_init, check_xa_init);
 
-            % default_y_dim = 1; %FIXME: Already in Agent_technique2
+            % default_y_dim = 1; %FIXME: Already in Agent_technique
             % check_y_dim = @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1)==0);
             % addOptional(p, 'y_dim', default_y_dim, check_y_dim);
 
@@ -221,7 +221,7 @@ classdef Kalman2 < Agent_technique2
                 end
 
             catch exception
-                error('Kalman2: An error occurred: %s', exception.message)
+                error('Kalman: An error occurred: %s', exception.message)
             end
         end
 
@@ -240,7 +240,7 @@ classdef Kalman2 < Agent_technique2
                 end
 
             catch exception
-                error('Kalman2: An error occurred: %s', exception.message)
+                error('Kalman: An error occurred: %s', exception.message)
             end
         end
 

@@ -13,7 +13,7 @@ classdef Lms < Agent_technique
     methods
         function obj = Lms(varargin)
             % disp(varargin)
-            % TODO: refactoring this constructor similar to the Kalman2 class (without a list of arguments) or explicit write this as another constructor structure example
+            % TODO: refactoring this constructor similar to the Kalman class (without a list of arguments) or explicit write this as another constructor structure example
             % Parametros da Classe derivada
             % derivedParams = {'order', 'mu', 'H_ini', 'H_rnd_ini', 'epsilon'};
             derivedParams = {'mu', 'H_ini', 'H_rnd_ini', 'epsilon'};

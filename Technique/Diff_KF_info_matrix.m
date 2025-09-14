@@ -1,4 +1,4 @@
-classdef Diff_KF_info_matrix < Fusion_technique2
+classdef Diff_KF_info_matrix < Fusion_technique
     properties
         % agent_vec
         % fusion_strategy     % Strategy for fusion: 'consensus', 'weighted', 'covariance_based'
@@ -9,7 +9,7 @@ classdef Diff_KF_info_matrix < Fusion_technique2
 
     methods
         function obj = Diff_KF_info_matrix(varargin)
-            obj@Fusion_technique2(varargin{:});
+            obj@Fusion_technique(varargin{:});
             
             p = inputParser;
             p.KeepUnmatched = true;
@@ -43,7 +43,7 @@ classdef Diff_KF_info_matrix < Fusion_technique2
             p = inputParser;
             p.KeepUnmatched = true;
 
-            addParameter(p, 'self_agent', [], @(x) isa(x, 'Agent2'));
+            addParameter(p, 'self_agent', [], @(x) isa(x, 'Agent'));
             addParameter(p, 'y_dim', [], @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1)==0));
 
             try
@@ -90,7 +90,7 @@ classdef Diff_KF_info_matrix < Fusion_technique2
             p = inputParser;
             p.KeepUnmatched = true;
 
-            % addParameter(p, 'self_agent', [], @(x) isa(x, 'Agent2'));
+            % addParameter(p, 'self_agent', [], @(x) isa(x, 'Agent'));
             addParameter(p, 'dim', [], @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1)==0));
             % addParameter(p, 'y_dim', [], @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1)==0));
             
