@@ -1,6 +1,5 @@
 classdef Diff_KF_time_measure < Fusion_technique
     properties
-        % agent_vec
         % fusion_strategy     % Strategy for fusion: 'consensus', 'weighted', 'covariance_based'
         % fusion_parameters   % Additional parameters for fusion
         phi_k       % Incremental step state estimate
@@ -13,20 +12,7 @@ classdef Diff_KF_time_measure < Fusion_technique
             
             p = inputParser;
             p.KeepUnmatched = true;
-
-            % Onde definir os pesos? R: Está sendo definido já no Fusion_technique
-            
-            % default_fusion_strategy = 'weighted';
-
-            % valid_strategies = {'consensus', 'weighted', 'covariance_based'};
-            % check_strategy = @(x) any(validatestring(x, valid_strategies));
-            % addOptional(p, 'fusion_strategy', default_fusion_strategy, check_strategy);
-
-
-            % default_fusion_parameters = struct();
-            % check_parameters = @(x) isstruct(x);
-            % addOptional(p, 'fusion_parameters', default_fusion_parameters, check_parameters);
-            
+           
             try
                 parse(p, varargin{:});
 
@@ -95,9 +81,7 @@ classdef Diff_KF_time_measure < Fusion_technique
             p = inputParser;
             p.KeepUnmatched = true;
 
-            % addParameter(p, 'self_agent', [], @(x) isa(x, 'Agent'));
             addParameter(p, 'dim', [], @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1)==0));
-            % addParameter(p, 'y_dim', [], @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1)==0));
             
             s = struct();
             try

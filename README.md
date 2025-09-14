@@ -1,265 +1,249 @@
-# Multi-Agent Adaptive Networks Framework ✨
+# CPE769 Multiagent Adaptive Networks
 
-> **Distributed intelligence meets adaptive filtering** - A comprehensive MATLAB framework for cooperative multi-agent systems with advanced adaptive filtering capabilities.
+## Table of Contents
+- [Project Overview](#project-overview)
+- [Codebase Organization](#codebase-organization)
+- [Architecture and Design Patterns](#architecture-and-design-patterns)
+- [Usage Guide](#usage-guide)
+- [Running test_MAS_sim.m](#running-test_mas_simm)
+- [Expected Outputs](#expected-outputs)
+- [Technical Documentation](#technical-documentation)
+- [Getting Started](#getting-started)
 
-## 🎯 Project Showcase
+## Project Overview
 
-**Innovation Hook**: *Revolutionizing distributed signal processing through intelligent agent cooperation and state-of-the-art adaptive filtering algorithms.*
+This project implements a comprehensive **multiagent adaptive networks system** for distributed learning and state estimation. The system enables multiple autonomous agents to collaboratively learn and estimate unknown parameters or states through various adaptive filtering techniques and fusion strategies.
 
-### Main Goals
-- **🤝 Cooperative Learning**: Enable multiple agents to collaboratively estimate unknown parameters through sophisticated information fusion strategies
-- **🔄 Adaptive Filtering Excellence**: Implement and compare industry-standard algorithms (LMS, RLS, Wiener, Kalman) in distributed environments
-- **📊 Performance Analysis**: Provide comprehensive Monte Carlo simulation framework for algorithm evaluation and comparison
-- **🌐 Network Topology Flexibility**: Support various agent network configurations and cooperation strategies
-- **🎛️ Real-time Adaptation**: Handle dynamic environments with time-varying parameters and noise characteristics
+### Main Objectives
+- **Distributed State Estimation**: Agents cooperatively estimate unknown states using local observations
+- **Adaptive Filtering**: Implementation of multiple adaptive algorithms (Kalman Filter, RLS, LMS, Wiener)
+- **Social Learning**: Agents share information through various fusion techniques to improve collective performance
+- **Network Topology Support**: Flexible network configurations with different connectivity patterns
+- **Performance Analysis**: Comprehensive simulation framework for comparing different techniques and topologies
 
-### Target Users & Use Cases
-- **Researchers** in distributed signal processing and multi-agent systems
-- **Engineers** developing sensor networks and cooperative estimation systems
-- **Students** learning adaptive filtering and distributed algorithms
-- **Applications**: Sensor fusion, distributed tracking, cooperative spectrum sensing, smart grid monitoring
+### Key Features
+- Multiple agent techniques: **KF (Kalman Filter)**, **RLS (Recursive Least Squares)**, LMS, Wiener
+- Advanced fusion strategies: **General_Adapt_and_Fuse**, **Diff_KF_time_measure**, **Diff_KF_info_matrix**
+- Configurable network topologies with neighbor-based communication
+- Monte Carlo simulation support for statistical analysis
+- Real-time performance metrics and visualization
 
----
-
-## 📚 Theoretical Foundation
-
-### Key Theories Applied
-- **Adaptive Filtering Theory**: Implements LMS, RLS, and Wiener filtering for optimal parameter estimation
-- **Kalman Filtering**: State-space estimation with linear and nonlinear observation models
-- **Consensus Theory**: Distributed averaging and agreement protocols for multi-agent coordination
-- **Graph Theory**: Network topology representation through adjacency matrices and social learning
-- **Stochastic Approximation**: Convergence analysis for distributed adaptive algorithms
-
-### Explicit Assumptions
-- **Gaussian Noise Model**: Assumes additive white Gaussian noise in sensor observations
-- **Linear System Dynamics**: State transition and observation models are linear (extensible to nonlinear)
-- **Connected Network Topology**: Agents form a connected graph for information exchange
-- **Synchronous Updates**: All agents update simultaneously in discrete time steps
-- **Stationary Statistics**: Assumes locally stationary signal statistics for adaptive convergence
-
----
-
-## 🏗️ Architectural Blueprint
-
-### Software Architecture
-**Layered Architecture** with **Strategy Pattern Integration** - *Promotes modularity and algorithm interchangeability while maintaining clear separation of concerns.*
+## Codebase Organization
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Application Layer                        │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
-│  │   Test Scripts  │  │   Simulations   │  │  Utilities   │ │
-│  └─────────────────┘  └─────────────────┘  └──────────────┘ │
-├─────────────────────────────────────────────────────────────┤
-│                     Agent Layer                             │
-│  ┌─────────────────┐  ┌─────────────────┐                   │
-│  │     Agent       │  │  Agent_vector   │                   │
-│  └─────────────────┘  └─────────────────┘                   │
-├─────────────────────────────────────────────────────────────┤
-│                  Cooperation Layer                          │
-│  ┌──────────────┐ ┌──────────────┐ ┌─────────────────────┐  │
-│  │ Single_task  │ │ Consensus    │ │ Non_cooperative     │  │
-│  └──────────────┘ └──────────────┘ └─────────────────────┘  │
-├─────────────────────────────────────────────────────────────┤
-│                 Algorithm Layer                             │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────────┐    │
-│  │   LMS   │ │   RLS   │ │ Wiener  │ │     Kalman      │    │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
+CPE769_multiagent_adaptive_networks/
+├── Agent/                          # Agent implementations
+│   ├── Agent.m                     # Core learning agent class
+│   └── Cooperation_type.m          # Cooperation strategy enumeration
+├── Technique/                      # Adaptive filtering and fusion techniques
+│   ├── Agent_technique.m           # Abstract base for adaptive algorithms
+│   ├── KF.m                       # Kalman Filter implementation
+│   ├── RLS.m                      # Recursive Least Squares implementation
+│   ├── Lms.m                      # Least Mean Squares implementation (deprecated)
+│   ├── Wiener.m                   # Wiener filtering implementation (deprecated)
+│   ├── Fusion_technique.m         # Abstract base for fusion strategies
+│   ├── General_Adapt_and_Fuse.m   # General adaptive fusion technique
+│   ├── Diff_KF_time_measure.m     # Diffusion KF with time measure fusion
+│   ├── Diff_KF_info_matrix.m      # Diffusion KF with information matrix fusion
+│   ├── Noon_coop.m                # Non-cooperative baseline
+│   └── Kalman_inc/                # Kalman filter components
+│       ├── Linear_State.m         # Linear state model
+│       ├── Linear_Obs.m           # Linear observation model
+│       └── System_Model.m         # Abstract system model
+├── Simulation/                     # Simulation framework
+│   ├── Simulation.m               # Abstract simulation base
+│   ├── Static_sim.m               # Stationary environment simulation
+│   └── Noise.m                    # Noise generation utilities
+├── Utils/                         # Utility functions
+│   ├── DEBUG.m                    # Debug output utility
+│   ├── print_graph.m              # Network topology visualization
+│   └── [other utilities]
+├── test_MAS_sim.m                 # Main simulation test script
+└── [test files and results]
 ```
 
-*Recommend creating detailed component diagrams with Mermaid.js*
+### Key Files Description
+- **`test_MAS_sim.m`**: Main simulation script for multiagent social learning
+- **`Agent.m`**: Core agent class managing individual learning and social fusion
+- **`KF.m`** & **`RLS.m`**: Primary agent techniques (currently supported)
+- **`General_Adapt_and_Fuse.m`**: Main fusion technique for cooperative learning
+- **`Linear_State.m`**: System model for Kalman filtering applications
 
----
+## Architecture and Design Patterns
 
-## 🔍 Code Anatomy
+### Object-Oriented Design Principles
+The codebase follows **SOLID principles** and implements several key design patterns:
 
-### Class Hierarchy
-```plaintext
-Core/
-├─ Agent/
-│  ├─ Agent.m (Individual learning agent)
-│  ├─ Agent_vector.m (Multi-agent coordinator)
-│  └─ Cooperation_type.m (Enumeration of cooperation strategies)
-├─ Technique/
-│  ├─ Agent_technique.m (Abstract base for adaptive algorithms)
-│  ├─ Lms.m (Least Mean Squares implementation)
-│  ├─ Rls.m (Recursive Least Squares implementation)
-│  ├─ Wiener.m (Wiener filtering implementation)
-│  ├─ Kalman.m (Kalman filter implementation)
-│  └─ Fusion_technique.m (Abstract base for cooperation strategies)
-├─ Simulation/
-│  ├─ Simulation.m (Abstract simulation framework)
-│  ├─ Static_sim.m (Stationary environment simulation)
-│  └─ Noise.m (Noise generation utilities)
-└─ Utils/
-   ├─ GeoPoint.m (Geometric coordinate utilities)
-   ├─ Measure.m (Measurement processing)
-   └─ Noise_Model.m (Advanced noise modeling)
-```
+#### 1. **Strategy Pattern**
+- **`Agent_technique`** abstract class defines common interface for all adaptive filtering algorithms
+- Concrete implementations: `KF`, `RLS`, `Lms`, `Wiener`
+- Enables runtime algorithm switching and polymorphic behavior
 
-### Critical Classes
+#### 2. **Template Method Pattern**
+- **`Fusion_technique`** abstract class defines fusion protocol structure
+- Concrete implementations: `General_Adapt_and_Fuse`, `Diff_KF_time_measure`, `Diff_KF_info_matrix`
+- Standardizes cooperation strategies while allowing customization
 
-**`Agent`**: *Core learning entity that maintains state buffers and applies adaptive filtering techniques*
-- Manages observation and state buffers with configurable window sizes
-- Implements both self-learning (individual adaptation) and social learning (cooperation) steps
-- Provides unified interface for different adaptive filtering algorithms
+#### 3. **Handle Class Pattern (MATLAB)**
+- All major classes inherit from `handle` for reference semantics
+- Enables efficient memory management and object sharing between agents
+- Critical for maintaining state consistency across the network
 
-**`Agent_vector`**: *Multi-agent system coordinator that orchestrates cooperation strategies*
-- Manages collections of agents and their network topology (B-matrix)
-- Implements different cooperation types through strategy pattern
-- Coordinates synchronous updates across all agents in the network
+#### 4. **Composition Pattern**
+- **`Agent`** class composes `Agent_technique` and `Fusion_technique` objects
+- Flexible combination of learning algorithms and cooperation strategies
+- Supports dependency injection for testing and configuration
 
-**`Agent_technique`**: *Abstract base class defining the adaptive filtering interface*
-- Standardizes the `apply()` method for all filtering algorithms
-- Ensures consistent parameter estimation and weight update mechanisms
-- Enables seamless algorithm switching through polymorphism
+### Best OOP Practices Implemented
+- **Encapsulation**: Private properties with controlled access methods
+- **Abstraction**: Clear separation between interface and implementation
+- **Polymorphism**: Unified interfaces for different algorithm types
+- **Single Responsibility**: Each class has a focused, well-defined purpose
 
-**`Fusion_technique`**: *Abstract framework for inter-agent information sharing strategies*
-- Defines cooperation protocols for distributed learning
-- Implements social matrix normalization for weighted information fusion
-- Supports various network topologies and communication constraints
+## Usage Guide
 
-**`Wiener`**: *Optimal linear filter implementation using expectation approximation*
-- Estimates autocorrelation matrix R and cross-correlation vector p from data windows
-- Implements gradient descent optimization with regularization
-- Provides theoretical performance bounds for comparison with adaptive algorithms
+### Prerequisites
+- MATLAB R2019b or later
+- Signal Processing Toolbox (recommended)
+- Statistics and Machine Learning Toolbox (recommended)
 
----
-
-## 🎨 Design Patterns Catalog
-
-### Patterns Used
-- **🏭 Strategy Pattern**: Interchangeable adaptive filtering algorithms (`Lms`, `Rls`, `Wiener`, `Kalman`) implement common `Agent_technique` interface
-- **🏗️ Template Method Pattern**: Abstract base classes define algorithmic structure while allowing customization in derived classes
-- **🔧 Factory Method Pattern**: `Agent_vector` creates appropriate fusion techniques based on cooperation type enumeration
-- **👁️ Observer Pattern**: Agents observe neighbor updates and react through social learning mechanisms
-- **🎯 Command Pattern**: Encapsulated update operations enable undo/redo functionality and batch processing
-
-### Pattern → File Mapping
-```plaintext
-Strategy Pattern:
-├─ Technique/Agent_technique.m → Abstract strategy interface
-├─ Technique/Lms.m → Concrete LMS strategy
-├─ Technique/Rls.m → Concrete RLS strategy
-├─ Technique/Wiener.m → Concrete Wiener strategy
-└─ Technique/Kalman.m → Concrete Kalman strategy
-
-Template Method Pattern:
-├─ Technique/Fusion_technique.m → Abstract cooperation template
-├─ Technique/Single_task.m → Weighted neighbor averaging
-├─ Technique/Consensus_constrain.m → Global consensus implementation
-└─ Technique/Non_cooperative.m → No information sharing
-
-Factory Method Pattern:
-└─ Agent/Agent_vector.m → Creates fusion techniques based on cooperation type
-
-Observer Pattern:
-├─ Agent/Agent.m → Observable agent state updates
-└─ Technique/Single_task.m → Observer of neighbor agent states
-```
-
----
-
-## 📊 Diagrams & Visuals
-
-### Recommended Visualizations
-- `![Class Diagram](diagrams/class_overview.png)` ← **RECOMMENDED**: UML class relationships and inheritance hierarchy
-- `![Architecture Diagram](diagrams/layered_architecture.svg)` ← **RECOMMENDED**: System architecture with data flow
-- `![Cooperation Strategies](diagrams/cooperation_comparison.png)` ← **RECOMMENDED**: Visual comparison of different cooperation types
-- `![Algorithm Performance](diagrams/rmse_comparison.png)` ← **RECOMMENDED**: Monte Carlo performance analysis results
-
-### Mermaid.js Integration Examples
-```mermaid
-graph TD
-    A[Agent_vector] --> B[Agent 1]
-    A --> C[Agent 2]
-    A --> D[Agent N]
-    B --> E[LMS/RLS/Wiener/Kalman]
-    C --> F[LMS/RLS/Wiener/Kalman]
-    D --> G[LMS/RLS/Wiener/Kalman]
-    A --> H[Fusion_technique]
-    H --> I[Single_task]
-    H --> J[Consensus_constrain]
-    H --> K[Non_cooperative]
-```
-
----
-
-## 🚀 Algorithm Implementations
-
-### Adaptive Filtering Techniques
-
-**Least Mean Squares (LMS)**
-- **Parameters**: Step size `μ`, regularization `ε`
-- **Update Rule**: `H(n+1) = H(n) + μ·e(n)·x(n)`
-- **Advantages**: Simple, robust, low computational complexity
-- **Use Cases**: Real-time applications, non-stationary environments
-
-**Recursive Least Squares (RLS)**
-- **Parameters**: Forgetting factor `λ`, initialization `δ`
-- **Update Rule**: Recursive covariance matrix inversion with exponential weighting
-- **Advantages**: Fast convergence, excellent tracking capability
-- **Use Cases**: High SNR scenarios, rapidly changing parameters
-
-**Wiener Filtering**
-- **Parameters**: Window size `n_win`, step size `μ`, regularization `ε`
-- **Update Rule**: `H = H - 2μ(H·R - p + ε·H)` using estimated statistics
-- **Advantages**: Optimal linear filter, theoretical performance bounds
-- **Use Cases**: Stationary environments, benchmark comparisons
-
-**Kalman Filtering**
-- **Parameters**: Process noise `Q`, measurement noise `R`, initial covariance `P₀`
-- **Update Rule**: Recursive Bayesian estimation with prediction and correction steps
-- **Advantages**: Optimal for linear Gaussian systems, handles dynamics
-- **Use Cases**: State estimation, tracking applications, sensor fusion
-
-### Cooperation Strategies
-
-**Non-Cooperative**: `Cooperation_type.non_cooperative`
-- Agents operate independently without information sharing
-- Baseline performance for comparison with cooperative methods
-
-**Consensus Constrain**: `Cooperation_type.consensus_constrain`
-- Global averaging of all agent estimates: `H_avg = mean(H_all_agents)`
-- Fastest convergence but requires full network connectivity
-
-**Single Task**: `Cooperation_type.single_task`
-- Weighted combination based on network topology (B-matrix)
-- Balances performance and communication requirements
-- Most practical for real-world deployments
-
-**Multi Task**: `Cooperation_type.multi_task` *(Under Development)*
-- Specialized cooperation for heterogeneous agent objectives
-- Future extension for complex multi-objective scenarios
-
----
-
-## 🧪 Getting Started
-
-### Quick Setup
+### Basic Setup
 ```matlab
-% Add paths and initialize
-addpath('./Agent/', './Technique/', './Simulation/', './Utils/');
-
-% Create multi-agent system with LMS and single-task cooperation
-agents = Agent_vector('n_agents', 6, 'coop_type', Cooperation_type.single_task);
-
-% Run simulation
-for n = 1:N_samples
-    agents.update(observations(:,n), true_state);
-end
+% Add necessary paths
+addpath("./Technique/")
+addpath("./Agent/")
+addpath("./Technique/Kalman_inc/")
+addpath("./Utils/")
 ```
 
-### Performance Comparison Example
+## Running test_MAS_sim.m
+
+The main simulation script `test_MAS_sim.m` requires **three mandatory variables** to be defined in the MATLAB Command Window before execution:
+
+### Required Variables
+
+#### 1. `net_topology` (Network Topology)
+Defines the communication network structure between agents.
+
+**Available Options:**
+- **`'caio_net_topology'`**: 6-agent network with moderate connectivity
+  - Agent connections: [1,2,3], [1,2], [1,3,4], [3,4,5,6], [4,5], [4,6]
+- **`'merched_net_topology'`**: 20-agent network with complex connectivity
+  - Larger, more realistic network topology for advanced simulations
+
+**Example:**
 ```matlab
-% Compare different algorithms and cooperation strategies
-test_MAS_mc;  % Monte Carlo comparison script
-test_MAS_sim; % Dynamic environment simulation
+net_topology = 'caio_net_topology';  % or 'merched_net_topology'
 ```
+
+#### 2. `tech` (Agent Technique)
+Specifies the adaptive filtering algorithm used by all agents.
+
+**Available Options:**
+- **`'KF'`**: Kalman Filter (recommended, fully supported)
+- **`'RLS'`**: Recursive Least Squares (fully supported)
+
+**Example:**
+```matlab
+tech = 'KF';  % or 'RLS'
+```
+
+#### 3. `str_fusion_tech` (Fusion Technique)
+Determines how agents share and fuse information from neighbors.
+
+**Available Options:**
+- **`'General_Adapt_and_Fuse'`**: General adaptive fusion (works with both KF and RLS)
+- **`'Diff_KF_time_measure'`**: Diffusion KF with time measure fusion (KF only)
+- **`'Diff_KF_info_matrix'`**: Diffusion KF with information matrix fusion (KF only)
+- **`''`** (empty string): Non-cooperative mode (no information sharing)
+
+**Example:**
+```matlab
+str_fusion_tech = 'General_Adapt_and_Fuse';
+```
+
+### Complete Execution Example
+```matlab
+% Define required variables
+net_topology = 'caio_net_topology';
+tech = 'KF';
+str_fusion_tech = 'General_Adapt_and_Fuse';
+
+% Run the simulation
+run('test_MAS_sim.m'); % or simply type 'test_MAS_sim' in the command window
+```
+
+### Execution Flow
+
+1. **Initialization Phase**
+   - Verifies required classes are available
+   - Sets up simulation parameters (state dimension=3, observation dimension=1, N=500 time steps, M>1 realizations for Monte Carlo)
+   - Creates network topology and visualizes it
+
+2. **Agent Creation Phase**
+   - Creates agents with specified technique (KF or RLS)
+   - Configures observation models and noise parameters
+   - Sets up fusion techniques and neighbor connections
+
+3. **Simulation Loop**
+   - For each time step:
+     - **Self-learning step**: Each agent processes its local observation
+     - **Social learning step**: Agents fuse information from neighbors
+   - Stores individual and fused estimates for analysis
+
+4. **Results Analysis**
+   - Computes Mean Square Deviation (MSD) for performance evaluation
+   - Generates multiple visualization plots
+   - Saves results to log file
+
+## Expected Outputs
+
+### Console Output
+- Class verification status
+- Simulation parameters summary
+- Agent creation confirmation
+- Real-time progress updates
+- Final performance summary
+
+### Generated Figures
+- **Figure 10**: Network topology graph
+- **Figure 1**: True dynamic vs. observations over time per agent
+- **Figure 2**: Individual agent estimates (before fusion)
+- **Figure 3**: Fused estimates (after social learning)
+- **Figure 4**: Estimation errors over time
+- **Figure 5**: Mean Square Deviation (MSD) analysis
+- **Figure 8**: Final MSD performance
+
+### Log File
+- Complete simulation log saved to `log.txt`
+- Includes all console output and debug information
+
+## Technical Documentation
+
+For detailed technical information, refer to:
+- **[README_AGENT_TECH.md](README_AGENT_TECH.md)**: Agent techniques implementation details
+- **[README_FUSION_TECH.md](README_FUSION_TECH.md)**: Fusion techniques implementation details
+
+## Getting Started
+
+### Quick Start Example
+```matlab
+% 1. Set up variables
+net_topology = 'caio_net_topology';
+tech = 'KF';
+str_fusion_tech = 'General_Adapt_and_Fuse';
+
+% 2. Run simulation
+run('test_MAS_sim.m'); % or simply type 'test_MAS_sim' in the command window
+
+% 3. Analyze results in generated figures and log.txt
+```
+
+### Recommended Configurations
+- **Beginners**: `caio_net_topology` + `KF` + `General_Adapt_and_Fuse`
+- **Advanced**: `merched_net_topology` + `KF` + `Diff_KF_info_matrix`
+- **Comparison**: Run multiple configurations to compare performance
 
 ---
 
-**🎓 Academic Foundation**: Based on adaptive filtering theory from Sayed's "Adaptive Filters" and Diniz's "Adaptive Filtering Algorithms and Practical Implementation" and distributed consensus protocols from multi-agent systems literature.
-
-**📈 Performance Insights**: Extensive Monte Carlo simulations demonstrate that cooperative strategies (especially single-task with RLS) achieve significantly lower RMSE compared to non-cooperative approaches, with consensus constrain providing the fastest convergence in fully connected networks.
+*For questions or issues, refer to the technical documentation or examine the test files for additional examples. Any bugs or feature requests are welcome! email: caio.alcantara@alumni.usp.br*

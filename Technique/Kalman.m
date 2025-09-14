@@ -26,10 +26,6 @@ classdef Kalman < Agent_technique
         Py = update_Py(obj, varargin);
         Pxy = update_Pxy(obj, varargin);
         R = update_R_matrix(obj, varargin);
-    
-        % Px = update_Px(obj, time);
-        % Q = update_Q_matrix(obj, varargin);
-        % [varargout] = apply(obj, varargin)    From Agent_technique: apply filtering technique for each obs sample
         
     end
 
@@ -38,7 +34,7 @@ classdef Kalman < Agent_technique
             % obj = Kalman(pos0, pos1, t0, t1, range_sd, bearing_sd)
             
             DEBUG(varargin)
-            obj@Agent_technique(varargin{:}); % TODO: Create a arugment fusion that captures the system model x dimension ??? What does come first?
+            obj@Agent_technique(varargin{:}); % TODO: Create a argument fusion that captures the system model x dimension ??? What does come first?
 
             % DEBUG(obj.y_dim)
 
@@ -64,10 +60,6 @@ classdef Kalman < Agent_technique
             default_xa_init = {};   % it must be the default option in method
             check_xa_init = @(x) isa(x, 'cell');
             addOptional(p, 'xa_init', default_xa_init, check_xa_init);
-
-            % default_y_dim = 1; %FIXME: Already in Agent_technique
-            % check_y_dim = @(x) isnumeric(x) && isscalar(x) && (x>0) && (mod(x,1)==0);
-            % addOptional(p, 'y_dim', default_y_dim, check_y_dim);
 
             try
                 parse(p, varargin{:});
@@ -96,12 +88,6 @@ classdef Kalman < Agent_technique
             DEBUG(obj.S)
             DEBUG(obj.K)
             DEBUG(obj.iteracts)
-            % obj.VAR_R = range_sd.^2;
-            % obj.VAR_phi = bearing_sd.^2;
-            
-            % obj.S = zeros(2,2);
-            % obj.K = zeros(4,2);
-            % obj.a = [0;0];
             
         end
 
@@ -280,7 +266,6 @@ classdef Kalman < Agent_technique
             a = obj.y - y_hat;
             obj.xp_hat = obj.xa_hat + K * a;
 
-            
             % obj.last_update_timestamp = varargin;
 
             % get statistics
@@ -340,19 +325,6 @@ classdef Kalman < Agent_technique
             end
 
         end
-
-        % function obj = update_agent_state_estimates(obj, agent)
-        %     agent.xp_hat = obj.xp_hat;
-        %     agent.xa_hat = obj.xa_hat;
-        % end
-
-        % function xa = get_prior_state(obj)
-        %     xa = obj.xa_hat;
-        % end
-
-        % function xp = get_posterior_state(obj)
-        %     xp = obj.xp_hat;
-        % end
 
         function set_priors(obj, varargin)
             p = inputParser;

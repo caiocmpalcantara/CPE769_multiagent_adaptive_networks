@@ -1,9 +1,6 @@
 classdef Agent < handle
     properties
-        y_hat               % Variável de observação que se estima a partir de H
-        % H_hat               % Variável de pesos que estima (for compatibility)
-        % x_dim               % Dimensão do vetor estado
-        % y_dim               % Dimensão do vetor observação
+        y_hat                   % Variável de observação que se estima a partir de H
         agent_technique         % Técnica de update adaptativo (Agent_technique)
         % Kalman-specific properties
         xp_hat                  % Posterior state estimate
@@ -28,14 +25,6 @@ classdef Agent < handle
             p = inputParser;
             p.KeepUnmatched = true;
 
-            % default_x_dim = 3;
-            % check_x_dim = @(x) isnumeric(x) && isscalar(x) && (x > 0) && (mod(x,1)==0);
-            % addOptional(p, 'x_dim', default_x_dim, check_x_dim);
-
-            % default_y_dim = 1;
-            % check_y_dim = @(x) isnumeric(x) && isscalar(x) && (x > 0) && (mod(x,1)==0);
-            % addOptional(p, 'y_dim', default_y_dim, check_y_dim);
-
             default_agent_tech = KF();
             check_agent_tech = @(x) isa(x, "Agent_technique");
             addOptional(p, 'agent_tech', default_agent_tech, check_agent_tech);
@@ -44,17 +33,14 @@ classdef Agent < handle
             check_fusion_tech = @(x) isa(x, "Fusion_technique");
             addOptional(p, 'fusion_tech', default_fusion_tech, check_fusion_tech);
 
-
             try
                 parse(p, varargin{:});
-                % obj.x_dim = p.Results.x_dim;
-                % obj.y_dim = p.Results.y_dim;
+
                 obj.agent_technique = p.Results.agent_tech;
                 obj.fusion_technique = p.Results.fusion_tech;
 
                 % Initialize Kalman-specific properties
                 obj.y_hat = zeros(obj.agent_technique.y_dim, 1);
-                % obj.H_hat = zeros(obj.agent_technique.y_dim, obj.agent_technique.x_dim);  % For compatibility with existing fusion techniques
                 obj.xp_hat = zeros(obj.agent_technique.x_dim, 1);
                 obj.xa_hat = zeros(obj.agent_technique.x_dim, 1);
                 obj.last_measurement = [];
@@ -62,14 +48,7 @@ classdef Agent < handle
                 obj.neighbors = [];
                 obj.neighbors_weights = [];
                 obj.fusion_results = struct();
-                % obj.fusion_results.state_estimate = [];
-                % obj.fusion_results.covariance_estimate = [];
                 obj.technique_results = struct();
-
-                % % Ensure agent_technique dimensions match
-                % if obj.agent_technique.x_dim ~= obj.x_dim || obj.agent_technique.y_dim ~= obj.y_dim
-                %     error('Agent: agent_technique dimensions must match agent dimensions');
-                % end
                 
                 if isempty(uniqueID)
                     uniqueID = 0; % Initialize the unique ID counter
@@ -85,14 +64,12 @@ classdef Agent < handle
         function obj = reset(obj)
             % Reset agent state
             obj.y_hat = zeros(obj.agent_technique.y_dim, 1);
-            % obj.H_hat = zeros(obj.agent_technique.y_dim, obj.agent_technique.x_dim);
             obj.xp_hat = zeros(obj.agent_technique.x_dim, 1);
             obj.xa_hat = zeros(obj.agent_technique.x_dim, 1);
             obj.last_measurement = [];
             s = struct();
             obj.fusion_results = s;
-            % obj.fusion_results.state_estimate = [];
-            % obj.fusion_results.covariance_estimate = [];
+
             % Reset the agent technique
             obj.agent_technique.reset();
             obj.technique_results = struct();
@@ -103,50 +80,17 @@ classdef Agent < handle
             % measurement: current observation
             % varargin: additional parameters for Kalman filtering
             
-            % try
-            %     ind = find(strcmp(varargin, 'measurement'));
-            %     if isempty(ind)
-            %         error('Measurement not provided.')
-            %     else
-            %         measurement = varargin{ind+1};
-            %     end
-            % catch exception
-            %     error('An error occurred: %s', exception.message);
-                
-            % end
-
-            % obj.last_measurement = measurement;
-            
             % Apply Kalman filtering technique
             DEBUG(varargin)
-            % [~,~,~,~,~,~,~,obj.y_hat] = obj.agent_technique.apply(varargin{:});
+
             obj.agent_technique.update_params(varargin{:});
             [obj.y_hat] = obj.agent_technique.apply(varargin{:}); %TODO: Refactoring the apply method in Technique to give an structure as output?
             obj.technique_results = obj.agent_technique.get_params('state_estimate', 'covariance_estimate');
-            % FIXME: Wrong pattern breaking the OOP principles
-            % % Update state estimates from Kalman filter
-            % switch class(obj.agent_technique)
-            %     case 'Kalman'
-            %         obj.xp_hat = obj.agent_technique.xp_hat;
-            %         obj.xa_hat = obj.agent_technique.xa_hat;
 
-            %     otherwise
-            %         DEBUG(obj.agent_technique)
-            %         error('Agent: Only Kalman is supported for now.')
-            % end
             % Update agent state estimates
             obj.xp_hat = obj.agent_technique.xp_hat;
             obj.xa_hat = obj.agent_technique.xa_hat;
 
-            % if isa(obj.agent_technique, 'Kalman')
-                
-                
-            %     % Update H_hat for compatibility with fusion techniques
-            %     % Extract observation matrix from Kalman filter if available
-            %     % if isprop(obj.agent_technique, 'H') || isfield(obj.agent_technique, 'H')
-            %     %     obj.H_hat = obj.agent_technique.H;
-            %     % end
-            % end
         end
         
         function obj = social_learning_step(obj)
@@ -154,7 +98,7 @@ classdef Agent < handle
             % p=inputParser;
             % p.KeepUnmatched = true;
             try
-                
+                DEBUG(sprintf('Agent %d\n calling social_learning_step...\n', obj.getID()))
                 obj.fusion_technique.social_learning_step('self_agent', obj, ...
                                                     'dim', obj.agent_technique.x_dim, ...
                                                     'y_dim', obj.agent_technique.y_dim);
@@ -168,21 +112,12 @@ classdef Agent < handle
             catch exception
                 error('Agent: Error in social_learning_step - %s', exception.message);
             end
-           
-            % Social learning step - update based on neighbor information
-            % For Kalman filters, this could update the observation matrix H
-            % obj.H_hat = new_H_hat;
-            
-            % Update the agent technique if it supports H matrix updates
-            % if hasMethod(obj.agent_technique, 'update_H')
-            %     obj.agent_technique.update_H(obj.H_hat);
-            % elseif isprop(obj.agent_technique, 'H') || isfield(obj.agent_technique, 'H')
-            %     obj.agent_technique.H = obj.H_hat;
-            % end
         end
 
         function update_agent_estimates(obj, varargin)
             % @brief Update agent estimates based on fusion results
+            
+            % TODO: A more general approach
             % p = inputParser;
             % p.KeepUnmatched = true;
             % addParameter(p, 'from', [], @(x) isstring(x));
@@ -240,10 +175,6 @@ classdef Agent < handle
             y_hat = obj.y_hat;
         end
 
-        % function H_hat = get_H_hat(obj)
-        %     H_hat = obj.H_hat;
-        % end
-
         function xp_hat = get_posterior_state(obj)
             % Get posterior state estimate
             xp_hat = obj.xp_hat;
@@ -290,12 +221,6 @@ classdef Agent < handle
             catch exception
                 error('Agent: Error in get_posterior_covariance - %s', exception.message);
             end
-            % Este tipo de implementação vai contra os princípios básicos de OOP
-            % if isa(obj.agent_technique, 'Kalman') && isprop(obj.agent_technique, 'Pp')
-            %     P = obj.agent_technique.Pp;
-            % else
-            %     P = [];
-            % end
 
         end
 

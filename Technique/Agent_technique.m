@@ -17,7 +17,7 @@ classdef Agent_technique < handle
             p = inputParser;
             p.KeepUnmatched = true;
 
-            % DEBUG(varargin)
+            DEBUG(varargin)
 
             default_x_dim = 3;
             check_x_dim = @(x) isnumeric(x) && isscalar(x) && (x > 0) && (mod(x,1)==0);
@@ -42,9 +42,6 @@ classdef Agent_technique < handle
             DEBUG(obj.y_dim)
             
         end
-        % function n_win = get_win_length(obj)
-        %     n_win = obj.n_win;
-        % end
 
         function xp_hat = get_posterior_state(obj)
             xp_hat = obj.xp_hat;

@@ -13,7 +13,7 @@ classdef KF < Kalman
         function obj = KF(varargin)
             DEBUG(varargin)
             obj@Kalman(varargin{:});
-            % DEBUG(varargin)
+            DEBUG(varargin)
 
             p = inputParser;
             p.KeepUnmatched = true;
@@ -110,14 +110,6 @@ classdef KF < Kalman
         function Pxy = update_Pxy(obj, varargin)
             Pxy = obj.Pa * obj.H';
         end
-
-        % % Method: update_Px - Based on the posterior P matrix, update the new prior P matrix
-        % % ---------------------------------
-        % function Px = update_Px(obj, varargin)
-        %     A = obj.update_A(varargin);
-        %     % A = update_A@Kalman(obj, time);
-        %     Px = A * obj.Pp * A';
-        % end
 
         % Method: update_Px - Based on the posterior P matrix, update the new prior P matrix
         % ------------------------------------

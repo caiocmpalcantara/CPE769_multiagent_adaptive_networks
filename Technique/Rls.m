@@ -18,7 +18,7 @@ classdef RLS < Agent_technique
 
     methods (Access = public)
         function obj = RLS(varargin)
-            % Constructor for RLS2 class
+            % @brief Constructor for RLS class
             % Inputs: 'x_dim', 'y_dim', 'H_matrix', 'lambda', 'start_vals'
 
             DEBUG(varargin)

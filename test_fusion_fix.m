@@ -1,7 +1,8 @@
 % Quick test to verify the fusion technique parameter passing fix
 % This tests the critical issues identified in the analysis
 
-clear; close all; clc;
+global DEBUG_MODE;
+DEBUG_MODE = false;
 
 % Add necessary paths
 addpath("./Technique/")
@@ -108,8 +109,8 @@ try
     fprintf('  ✓ Agent state: %s\n', mat2str(agent.xp_hat', 3));
     
     % Now test social learning step with fixed parameter passing
-    agent1.fusion_technique.social_learning_step(agent1, 'dim', x_dim);
-    agent.fusion_technique.social_learning_step(agent, 'dim', x_dim);
+    agent1.social_learning_step();
+    agent.social_learning_step();
     
     fprintf('  ✓ Social learning step completed successfully\n');
     fprintf('  ✓ Agent1 fused state: %s\n', mat2str(agent1.xp_hat', 3));
