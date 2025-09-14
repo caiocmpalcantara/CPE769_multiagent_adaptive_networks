@@ -88,7 +88,7 @@ end
 x_dim = 3;  % State dimension
 y_dim = 1;  % Observation dimension
 N = 500;     % Time steps
-M = 1;      % Number of Monte Carlo realizations
+M = 50;      % Number of Monte Carlo realizations
 
 % Define network topology (each agent knows subset of others + itself)
 switch net_topology
@@ -428,6 +428,7 @@ for m = 1:M
         fprintf('  Completed %.0f%% of Monte-Carlo realizations\n', 100*m/M);
     end
 end
+agent = agents{1}; % To show up at the end the class of the agent and the class of the fusion technique
 fprintf('Simulation completed successfully!\n');
 
 %% Performance Analysis
@@ -440,8 +441,6 @@ state_errors_fused = zeros(N, Na, M);
 
 for a = 1:Na
     % Prediction errors (comparing predicted observations to true observations)
-    % y_pred = squeeze(y_hat_history(1, :, a))';
-    % y_pred = squeeze(y_hat_history(1, :, a, :))';
     y_pred = y_hat_history(1, :, a, :);
     y_pred = reshape(y_pred, [N, M]);
     for m = 1:M
@@ -464,222 +463,305 @@ for a = 1:Na
 end
 
 % Overall performance metrics
-% mean_individual_error = mean(state_errors_individual(end, :)); (não faz sentido, pois, referente a cada amostra de tempo, sempre haverá amostras que dão erro maior e outras que dão erro menor, ambas se compensando em média)
-% mean_fused_error = mean(state_errors_fused(end, :));
-% improvement = (mean_individual_error - mean_fused_error) / mean_individual_error * 100;
-
-mean_individual_error = mean(sqrt(mean(state_errors_individual_mean(:,:).^2, 1))); % TODO: fix the order of the mean to reflect the monte-carlo of the temporal mean
+mean_individual_error = mean(sqrt(mean(state_errors_individual_mean(:,:).^2, 1)));
 mean_fused_error = mean(sqrt(mean(state_errors_fused_mean(:,:).^2, 1)));
 improvement = (mean_individual_error - mean_fused_error) / mean_individual_error * 100;
 
 fprintf('\nOverall Performance:\n');
-fprintf('  Total MC and temporal mean individual error: %.6f\n', mean_individual_error);
-fprintf('  Total MC and temporal mean fused error: %.6f\n', mean_fused_error);
-fprintf('  Improvement from fusion: %.2f%%\n', improvement);
+if M>1
+    fprintf('  Total MC and temporal mean individual error: %.6f\n', mean_individual_error);
+    fprintf('  Total MC and temporal mean fused error: %.6f\n', mean_fused_error);
+else
+    fprintf('  Temporal mean individual error: %.6f\n', mean_individual_error);
+    fprintf('  Temporal mean fused error: %.6f\n', mean_fused_error);
+end
+
+if improvement > 0
+    fprintf('  Social learning improved performance by %.2f%%\n', improvement);
+else
+    fprintf('  Social learning degraded performance by %.2f%%\n', abs(improvement));
+end
 
 % Additional metrics
 fprintf('\nAdditional Metrics:\n');
 mc_pred_error = mean(prediction_errors(:, :, :),3);
 mean_pred_error = mean(mc_pred_error(end, :), 2); % Mean over agents
-fprintf('  MC and mean final prediction error: %.6f\n', mean_pred_error);
-% fprintf('  True observation value: %.6f\n', y(end));
+if M>1
+    fprintf('  MC and mean final prediction error: %.6f\n', mean_pred_error);
+else
+    fprintf('  Final prediction error: %.6f\n', mean_pred_error);
+end
 
 %% Visualization
 fprintf('\nGenerating plots...\n');
-m = 1;
+m = randperm(M, 1);
 % Figure 1: Observations and Predictions
 figure(1);
 clf;
 n = 1:N;
+choose_agents_to_plot2 = sort(randperm(Na, min(8,Na)), 'ascend');
+choose_agents_to_plot = choose_agents_to_plot2(1:4);
 subplot(2,2,1);
-plot(n, squeeze(d(1, 1, :, 1)), 'b-', 'LineWidth', 1);
+plot(n, y(:,choose_agents_to_plot(1)), 'k--', 'LineWidth', 2.2);
 hold on;
-plot(n, squeeze(y_hat_history(1, :, 1, m)), 'r-', 'LineWidth', 1.5);
-plot(n, squeeze(y_hat_history(1, :, 2, m)), 'g-', 'LineWidth', 1.5);
-plot(n, squeeze(y_hat_history(1, :, 3, m)), 'c-', 'LineWidth', 1.5);
-plot(n, squeeze(y_hat_history(1, :, 4, m)), 'm-', 'LineWidth', 1.5);
-plot(n, y, 'k--', 'LineWidth', 2);
+plot(n, squeeze(d(1, choose_agents_to_plot(1), :, m)), 'b-', 'LineWidth', 1);
+plot(n, squeeze(y_hat_history(1, :, choose_agents_to_plot(1), m)), 'r-', 'LineWidth', 1.2);
 xlabel('Time Step');
 ylabel('Observation');
-title(sprintf('Observations vs Predictions (realization %d)', m));
-legend('Noisy Observations from Agent 1', 'Agent 1 Pred', 'Agent 2 Pred', 'Agent 3 Pred', 'Agent 4 Pred', 'True Value', 'Location', 'best');
+title(sprintf('Observations vs Predictions (realization %d, agent %d)', m, choose_agents_to_plot(1)));
+legend('True Value', 'Noisy Observations', 'Agent Prediction', 'Location', 'best');
 grid on;
 
+subplot(2,2,2);
+plot(n, y(:,choose_agents_to_plot(2)), 'k--', 'LineWidth', 2.2);
+hold on;
+plot(n, squeeze(d(1, choose_agents_to_plot(2), :, m)), 'b-', 'LineWidth', 1);
+plot(n, squeeze(y_hat_history(1, :, choose_agents_to_plot(2), m)), 'r-', 'LineWidth', 1.2);
+xlabel('Time Step');
+ylabel('Observation');
+title(sprintf('Observations vs Predictions (realization %d, agent %d)', m, choose_agents_to_plot(2)));
+legend('True Value', 'Noisy Observations', 'Agent Prediction', 'Location', 'best');
+grid on;
+
+subplot(2,2,3);
+plot(n, y(:,choose_agents_to_plot(3)), 'k--', 'LineWidth', 2.2);
+hold on;
+plot(n, squeeze(d(1, choose_agents_to_plot(3), :, m)), 'b-', 'LineWidth', 1);
+plot(n, squeeze(y_hat_history(1, :, choose_agents_to_plot(3), m)), 'r-', 'LineWidth', 1.2);
+xlabel('Time Step');
+ylabel('Observation');
+title(sprintf('Observations vs Predictions (realization %d, agent %d)', m, choose_agents_to_plot(3)));
+legend('True Value', 'Noisy Observations', 'Agent Prediction', 'Location', 'best');
+grid on;
+
+subplot(2,2,4);
+plot(n, y(:,choose_agents_to_plot(4)), 'k--', 'LineWidth', 2.2);
+hold on;
+plot(n, squeeze(d(1, choose_agents_to_plot(4), :, m)), 'b-', 'LineWidth', 1);
+plot(n, squeeze(y_hat_history(1, :, choose_agents_to_plot(4), m)), 'r-', 'LineWidth', 1.2);
+xlabel('Time Step');
+ylabel('Observation');
+title(sprintf('Observations vs Predictions (realization %d, agent %d)', m, choose_agents_to_plot(4)));
+legend('True Value', 'Noisy Observations', 'Agent Prediction', 'Location', 'best');
+grid on;
+
+% Figure 2: Consensus, Uncertainty, and Convergence
 figure(2)
 clf;
-% Subfigure 2: Consensus Evolution
-subplot(2,2,2);
-for a = 1:Na
-    plot(n, squeeze(fused_estimates(1, :, a, m)), 'LineWidth', 1.5);
-    hold on;
+choose_xdim_to_plot = sort(randperm(x_dim, min(3,x_dim)), 'ascend');
+
+%   Subfigure 1: Consensus Evolution
+subplot(2,2,1);
+hold on;
+for a = 1:min(8,Na)
+    plot(n, squeeze(fused_estimates(choose_xdim_to_plot(1), :, choose_agents_to_plot2(a), m)), 'LineWidth', 1.2);
 end
-plot(n, w(1)*ones(size(n)), 'k--', 'LineWidth', 2);
+plot(n, w(choose_xdim_to_plot(1))*ones(size(n)), 'k--', 'LineWidth', 2);
 xlabel('Time Step');
-ylabel('State Component 1');
-title(sprintf('Consensus Evolution (x_1), realization %d', m));
-legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'True Value', 'Location', 'best');
+ylabel(sprintf('State Component %d', choose_xdim_to_plot(1)));
+title(sprintf('Consensus Evolution (x_%d), realization %d', choose_xdim_to_plot(1), m));
+leg = cell(1, length(choose_agents_to_plot2)+1);
+for a = 1:length(choose_agents_to_plot2)
+    leg{a} = sprintf('Agent %d, ', choose_agents_to_plot2(a));
+end
+leg{a+1} = 'True Value';
+legend(leg{:}, 'Location', 'best');
 grid on;
 
-% Subfigure 3: Covariance Trace Evolution
+%   Subfigure 2: Consensus Evolution
+if x_dim > 1
+    subplot(2,2,2);
+    hold on;
+    for a = 1:min(8,Na)
+        plot(n, squeeze(fused_estimates(choose_xdim_to_plot(2), :, choose_agents_to_plot2(a), m)), 'LineWidth', 1.2);
+    end
+    plot(n, w(choose_xdim_to_plot(2))*ones(size(n)), 'k--', 'LineWidth', 2);
+    xlabel('Time Step');
+    ylabel(sprintf('State Component %d', choose_xdim_to_plot(2)));
+    title(sprintf('Consensus Evolution (x_%d), realization %d', choose_xdim_to_plot(2), m));
+    leg = cell(1, length(choose_agents_to_plot2)+1);
+    for a = 1:length(choose_agents_to_plot2)
+        leg{a} = sprintf('Agent %d, ', choose_agents_to_plot2(a));
+    end
+    leg{a+1} = 'True Value';
+    legend(leg{:}, 'Location', 'best');
+    grid on;
+end
+
+%   Subfigure 3: Consensus Evolution
+if x_dim > 2
+    subplot(2,2,4);
+    hold on;
+    for a = 1:min(8,Na)
+        plot(n, squeeze(fused_estimates(choose_xdim_to_plot(3), :, choose_agents_to_plot2(a), m)), 'LineWidth', 1.2);
+    end
+    plot(n, w(choose_xdim_to_plot(3))*ones(size(n)), 'k--', 'LineWidth', 2);
+    xlabel('Time Step');
+    ylabel(sprintf('State Component %d', choose_xdim_to_plot(3)));
+    title(sprintf('Consensus Evolution (x_%d), realization %d', choose_xdim_to_plot(3), m));
+    leg = cell(1, length(choose_agents_to_plot2)+1);
+    for a = 1:length(choose_agents_to_plot2)
+        leg{a} = sprintf('Agent %d, ', choose_agents_to_plot2(a));
+    end
+    leg{a+1} = 'True Value';
+    legend(leg{:}, 'Location', 'best');
+    grid on;
+end
+
+%   Subfigure 4: Covariance Trace Evolution
 subplot(2,2,3);
-plot(n, P_trace_history(:, 1, m), 'r-', 'LineWidth', 1.5);
 hold on;
-plot(n, P_trace_history(:, 2, m), 'g-', 'LineWidth', 1.5);
-plot(n, P_trace_history(:, 3, m), 'c-', 'LineWidth', 1.5);
-plot(n, P_trace_history(:, 4, m), 'm-', 'LineWidth', 1.5);
+for a = 1:min(8,Na)
+    plot(n, P_trace_history(:, choose_agents_to_plot2(a), m), 'LineWidth', 1.5);
+end
 xlabel('Time Step');
 ylabel('Trace(P)');
 title(sprintf('Uncertainty Evolution (Covariance Trace) - realization %d', m));
-legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'Location', 'best');
+leg = cell(1, length(choose_agents_to_plot2));
+    for a = 1:length(choose_agents_to_plot2)
+        leg{a} = sprintf('Agent %d', choose_agents_to_plot2(a));
+    end
+legend(leg{:}, 'Location', 'best');
 grid on;
 
-% Subfigure 4: State Convergence
-subplot(2,2,4);
-plot(n, squeeze(fused_estimates(1, :, 1, m)), 'r-', 'LineWidth', 1.5);
-hold on;
-plot(n, squeeze(fused_estimates(2, :, 1, m)), 'g-', 'LineWidth', 1.5);
-plot(n, squeeze(fused_estimates(3, :, 1, m)), 'c-', 'LineWidth', 1.5);
-plot(n, w(1)*ones(size(n)), 'r--', 'LineWidth', 1);
-plot(n, w(2)*ones(size(n)), 'g--', 'LineWidth', 1);
-plot(n, w(3)*ones(size(n)), 'c--', 'LineWidth', 1);
-xlabel('Time Step');
-ylabel('State Estimates');
-title(sprintf('State Convergence (Agent 1) - realization %d', m));
-legend('x_1 estimate', 'x_2 estimate', 'x_3 estimate', 'x_1 true', 'x_2 true', 'x_3 true', 'Location', 'best');
-grid on;
-
-% Figure 2: State Individual vs Fused Estimation Errors (firsts 4 agents)
-figure(3);
-clf;
-subplot(2,2,1);
-plot(n, state_errors_individual(:, 1, m), 'r--', 'LineWidth', 1);
-hold on;
-plot(n, state_errors_fused(:, 1, m), 'r-.', 'LineWidth', 2);
-plot(n, state_errors_individual(:, 2, m), 'g--', 'LineWidth', 1);
-plot(n, state_errors_fused(:, 2, m), 'g-.', 'LineWidth', 2);
-plot(n, state_errors_individual(:, 3, m), 'c--', 'LineWidth', 1);
-plot(n, state_errors_fused(:, 3, m), 'c-.', 'LineWidth', 2);
-plot(n, state_errors_individual(:, 4, m), 'm--', 'LineWidth', 1);
-plot(n, state_errors_fused(:, 4, m), 'm-.', 'LineWidth', 2);
-xlabel('Time Step');
-ylabel('State Estimation Error');
-title(sprintf('Individual vs Fused State Errors (first 4 agents) - realization %d', m));
-legend('Agent 1 Individual', 'Agent 1 Fused', 'Agent 2 Individual', 'Agent 2 Fused', 'Agent 3 Individual', 'Agent 3 Fused', 'Agent 4 Individual', 'Agent 4 Fused', 'Location', 'best');
-grid on;
-
-% subplot(2,2,1);
-% for a = 1:Na
-%     plot(n, state_errors_individual(:, a), '--', 'LineWidth', 1);
-%     hold on;
-% end
-% for a = 1:Na
-%     plot(n, state_errors_fused(:, a), '-.', 'LineWidth', 2);
-% end
+% % Subfigure 4: State Convergence
+% subplot(2,2,3);
+% plot(n, squeeze(fused_estimates(1, :, 1, m)), 'r-', 'LineWidth', 1.5);
+% hold on;
+% plot(n, squeeze(fused_estimates(2, :, 1, m)), 'g-', 'LineWidth', 1.5);
+% plot(n, squeeze(fused_estimates(3, :, 1, m)), 'c-', 'LineWidth', 1.5);
+% plot(n, w(1)*ones(size(n)), 'r--', 'LineWidth', 1);
+% plot(n, w(2)*ones(size(n)), 'g--', 'LineWidth', 1);
+% plot(n, w(3)*ones(size(n)), 'c--', 'LineWidth', 1);
 % xlabel('Time Step');
-% ylabel('State Estimation Error');
-% title('All Agents: Individual vs Fused Errors');
-% legend('Ind 1', 'Ind 2', 'Ind 3', 'Ind 4', 'Fused 1', 'Fused 2', 'Fused 3', 'Fused 4', 'Location', 'best');
+% ylabel('State Estimates');
+% title(sprintf('State Convergence (Agent 1) - realization %d', m));
+% legend('x_1 estimate', 'x_2 estimate', 'x_3 estimate', 'x_1 true', 'x_2 true', 'x_3 true', 'Location', 'best');
 % grid on;
 
-% Figure 2: State Individual vs Fused Estimation Errors (firsts 4 agents) in dB
+% Figure 3: State Individual vs Fused Estimation Errors
+figure(3);
+clf;
+%    Subfigure 1: State Individual vs Fused Estimation Errors (4 agents)
+subplot(2,2,1);
+plot(n, state_errors_individual(:, choose_agents_to_plot(1), m), 'r--', 'LineWidth', 1.5);
+hold on;
+plot(n, state_errors_fused(:, choose_agents_to_plot(1), m), 'r-.', 'LineWidth', 2);
+plot(n, state_errors_individual(:, choose_agents_to_plot(2), m), 'g--', 'LineWidth', 1.5);
+plot(n, state_errors_fused(:, choose_agents_to_plot(2), m), 'g-.', 'LineWidth', 2);
+plot(n, state_errors_individual(:, choose_agents_to_plot(3), m), 'c--', 'LineWidth', 1.5);
+plot(n, state_errors_fused(:, choose_agents_to_plot(3), m), 'c-.', 'LineWidth', 2);
+plot(n, state_errors_individual(:, choose_agents_to_plot(4), m), 'm--', 'LineWidth', 1.5);
+plot(n, state_errors_fused(:, choose_agents_to_plot(4), m), 'm-.', 'LineWidth', 2);
+xlabel('Time Step');
+ylabel('RMSD');
+title(sprintf('Individual vs Fused State Errors - realization %d', m));
+leg = cell(1, 2*length(choose_agents_to_plot));
+    for a = 1:2*length(choose_agents_to_plot)
+        if mod(a,2) == 0
+            leg{a} = sprintf('Agent %d Fused', choose_agents_to_plot(a/2));
+        else
+            leg{a} = sprintf('Agent %d Individual', choose_agents_to_plot((a+1)/2));
+        end
+    end
+legend(leg{:}, 'Location', 'best');
+grid on;
+
+%    Subfigure 2: State Individual vs Fused Estimation Errors (4 agents) in dB
 subplot(2,2,2);
-plot(n, 10*log10(state_errors_individual(:, 1, m)), 'r-.', 'LineWidth', 1);
+plot(n, 20*log10(state_errors_individual(:, choose_agents_to_plot(1), m)), 'r-.', 'LineWidth', 1);
 hold on;
-plot(n, 10*log10(state_errors_fused(:, 1, m)), 'r-', 'LineWidth', 2);
-plot(n, 10*log10(state_errors_individual(:, 2, m)), 'g-.', 'LineWidth', 1);
-plot(n, 10*log10(state_errors_fused(:, 2, m)), 'g-', 'LineWidth', 2);
-plot(n, 10*log10(state_errors_individual(:, 3, m)), 'c-.', 'LineWidth', 1);
-plot(n, 10*log10(state_errors_fused(:, 3, m)), 'c-', 'LineWidth', 2);
-plot(n, 10*log10(state_errors_individual(:, 4, m)), 'm-.', 'LineWidth', 1);
-plot(n, 10*log10(state_errors_fused(:, 4, m)), 'm-', 'LineWidth', 2);
+plot(n, 20*log10(state_errors_fused(:, choose_agents_to_plot(1), m)), 'r-', 'LineWidth', 2);
+plot(n, 20*log10(state_errors_individual(:, choose_agents_to_plot(2), m)), 'g-.', 'LineWidth', 1);
+plot(n, 20*log10(state_errors_fused(:, choose_agents_to_plot(2), m)), 'g-', 'LineWidth', 2);
+plot(n, 20*log10(state_errors_individual(:, choose_agents_to_plot(3), m)), 'c-.', 'LineWidth', 1);
+plot(n, 20*log10(state_errors_fused(:, choose_agents_to_plot(3), m)), 'c-', 'LineWidth', 2);
+plot(n, 20*log10(state_errors_individual(:, choose_agents_to_plot(4), m)), 'm-.', 'LineWidth', 1);
+plot(n, 20*log10(state_errors_fused(:, choose_agents_to_plot(4), m)), 'm-', 'LineWidth', 2);
 xlabel('Time Step');
-ylabel('State Estimation Error');
-title(sprintf('Individual vs Fused State Errors [dB] (first 4 agents) - realization %d', m));
-legend('Agent 1 Individual', 'Agent 1 Fused', 'Agent 2 Individual', 'Agent 2 Fused', 'Agent 3 Individual', 'Agent 3 Fused', 'Agent 4 Individual', 'Agent 4 Fused', 'Location', 'best');
+ylabel('MSD [dB]');
+title(sprintf('Individual vs Fused State Errors [dB] - realization %d', m));
+leg = cell(1, 2*length(choose_agents_to_plot));
+    for a = 1:2*length(choose_agents_to_plot)
+        if mod(a,2) == 0
+            leg{a} = sprintf('Agent %d Fused', choose_agents_to_plot(a/2));
+        else
+            leg{a} = sprintf('Agent %d Individual', choose_agents_to_plot((a+1)/2));
+        end
+    end
+legend(leg{:}, 'Location', 'best');
 grid on;
 
 
-% Figure 2: Prediction Errors
+%    Subfigure 3: Prediction Errors (RMSE)
 subplot(2,2,3);
-% for a = 1:Na
-%     plot(n, prediction_errors(:, a), 'LineWidth', 1.5);
-%     hold on;
-% end
-plot(n, prediction_errors(:, 1, m), 'r-', 'LineWidth', 1.5);
+plot(n, prediction_errors(:, choose_agents_to_plot(1), m), 'r-', 'LineWidth', 1.5);
 hold on;
-plot(n, prediction_errors(:, 2, m), 'g-', 'LineWidth', 1.5);
-plot(n, prediction_errors(:, 3, m), 'c-', 'LineWidth', 1.5);
-plot(n, prediction_errors(:, 4, m), 'm-', 'LineWidth', 1.5);
+plot(n, prediction_errors(:, choose_agents_to_plot(2), m), 'g-', 'LineWidth', 1.5);
+plot(n, prediction_errors(:, choose_agents_to_plot(3), m), 'c-', 'LineWidth', 1.5);
+plot(n, prediction_errors(:, choose_agents_to_plot(4), m), 'm-', 'LineWidth', 1.5);
 xlabel('Time Step');
-ylabel('Prediction Error');
-title(sprintf('Prediction Errors by Agent (first 4 agents) - realization %d', m));
-legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'Location', 'best');
+ylabel('RMSE');
+title(sprintf('Prediction Errors by Agent - realization %d', m));
+leg = cell(1, length(choose_agents_to_plot));
+for a = 1:length(choose_agents_to_plot)
+    leg{a} = sprintf('Agent %d', choose_agents_to_plot(a));
+end
+legend(leg{:}, 'Location', 'best');
 grid on;
 
-% Figure 2: Prediction Errors [dB]
+%    Subfigure 4: Prediction Errors (RMSE) [dB]
 subplot(2,2,4);
-% for a = 1:Na
-%     plot(n, prediction_errors(:, a), 'LineWidth', 1.5);
-%     hold on;
-% end
-plot(n, 10*log10(prediction_errors(:, 1, m)), 'r-', 'LineWidth', 1.5);
+plot(n, 10*log10(prediction_errors(:, choose_agents_to_plot(1), m)), 'r-', 'LineWidth', 1.5);
 hold on;
-plot(n, 10*log10(prediction_errors(:, 2, m)), 'g-', 'LineWidth', 1.5);
-plot(n, 10*log10(prediction_errors(:, 3, m)), 'c-', 'LineWidth', 1.5);
-plot(n, 10*log10(prediction_errors(:, 4, m)), 'm-', 'LineWidth', 1.5);
+plot(n, 10*log10(prediction_errors(:, choose_agents_to_plot(2), m)), 'g-', 'LineWidth', 1.5);
+plot(n, 10*log10(prediction_errors(:, choose_agents_to_plot(3), m)), 'c-', 'LineWidth', 1.5);
+plot(n, 10*log10(prediction_errors(:, choose_agents_to_plot(4), m)), 'm-', 'LineWidth', 1.5);
 xlabel('Time Step');
-ylabel('Prediction Error');
-title(sprintf('Prediction Errors by Agent [dB] (first 4 agents) - realization %d', m));
-legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'Location', 'best');
+ylabel('RMSE [dB]');
+title(sprintf('Prediction Errors by Agent [dB] - realization %d', m));
+leg = cell(1, length(choose_agents_to_plot));
+for a = 1:length(choose_agents_to_plot)
+    leg{a} = sprintf('Agent %d', choose_agents_to_plot(a));
+end
+legend(leg{:}, 'Location', 'best');
 grid on;
 
-% Figure 3: Final State Estimates
+% Figure 4: Final State Estimates and Temporal Mean State Estimates
 figure(4);
 clf;
 subplot(1,2,1);
-Na_to_show = min(Na, 8);
-agents_idx = 1:Na_to_show;
-individual_final = state_errors_individual(end, :, m);
-fused_final = state_errors_fused(end, :, m);
+
+agents_idx = 1:length(choose_agents_to_plot2);
+individual_final = state_errors_individual(end, choose_agents_to_plot2, m);
+fused_final = state_errors_fused(end, choose_agents_to_plot2, m);
 bar_width = 0.35;
-bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+bar(agents_idx - bar_width/2, individual_final, bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
 hold on;
-bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
-if Na > Na_to_show
-    xticklabels(1:Na_to_show);
-end
+bar(agents_idx + bar_width/2, fused_final, bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+xticklabels(choose_agents_to_plot2);
 xticks(agents_idx);
 xlabel('Agent');
-ylabel('Final State Error');
-if Na > Na_to_show
-    title(sprintf('Final Performance Comparison (first %d agents) - realization %d', Na_to_show, m));
-else
-    title(sprintf('Final Performance Comparison (all %d agents) - realization %d', Na, m));
-end
+ylabel('Final State Error (RMSD)');
+title(sprintf('Final Performance Comparison (RMSD) - realization %d', m));
 legend('Individual', 'Fused', 'Location', 'best');
 grid on;
 
-% Figure 3: Mean State Estimates
+% Figure 3: 
 subplot(1,2,2);
-Na_to_show = min(Na, 8);
-agents_idx = 1:Na_to_show;
-individual_final = sqrt(mean(state_errors_individual(:, :, m).^2, 1));
-fused_final = sqrt(mean(state_errors_fused(:, :, m).^2, 1));
+
+agents_idx = 1:length(choose_agents_to_plot2);
+individual_final = sqrt(mean(state_errors_individual(:, choose_agents_to_plot2, m).^2, 1));
+fused_final = sqrt(mean(state_errors_fused(:, choose_agents_to_plot2, m).^2, 1));
 bar_width = 0.35;
-bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+bar(agents_idx - bar_width/2, individual_final, bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
 hold on;
-bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
-if Na > Na_to_show
-    xticklabels(1:Na_to_show);
-end
+bar(agents_idx + bar_width/2, fused_final, bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+xticklabels(choose_agents_to_plot2);
 xticks(agents_idx);
 xlabel('Agent');
-ylabel('Mean State Error (RMS)');
-if Na > Na_to_show
-    title(sprintf('Mean Performance Comparison in RMS sense (first %d agents) - realization %d', Na_to_show, m));
-else
-    title(sprintf('Mean Performance Comparison in RMS sense (all %d agents) - realization %d', Na, m));
-end
+ylabel('Mean State Error (RMSD)');
+title(sprintf('Temporal Mean Performance Comparison RMSD - realization %d', m));
 legend('Individual', 'Fused', 'Location', 'best');
 grid on;
 
@@ -695,15 +777,15 @@ end
 % Calculate uncertainty reduction
 if any(P_trace_history(1, :, m) > 0)
     uncertainty_reduction = (mean(P_trace_history(1, :, m)) - mean(P_trace_history(end, :, m))) / mean(P_trace_history(1, :, m)) * 100;
-    fprintf('  - Average uncertainty reduction (realization %d): %.2f%%\n', m, uncertainty_reduction);
+    fprintf('  - Average uncertainty reduction (over time) estimated by covariance trace (realization %d): %.2f%%\n', m, uncertainty_reduction);
 else
-    fprintf('  - Uncertainty evolution: covariance traces available\n');
+    fprintf('  - Uncertainty evolution: covariance traces not available\n');
 end
 
 % Check consensus
 final_states = squeeze(fused_estimates(:, end, :, m));
-consensus_variance = var(final_states, 0, 2);
-fprintf('  - Final state consensus variance (realization %d): [%.6f %.6f %.6f]\n', m, consensus_variance);
+consensus_variance = sqrt(var(final_states, 0, 2));
+fprintf('  - Final state consensus deviation between agents (realization %d): [%.6f %.6f %.6f]\n', m, (consensus_variance(1:3)));
 
 % Convergence analysis
 convergence_threshold = 0.1;
@@ -714,75 +796,57 @@ fprintf('  - Agents converged (error < %.1f) (realization %d): %d/%d\n', converg
 %% Visualization Monte-Carlo
 if M>1    
     fprintf('\nGenerating Monte-Carlo averaged plots...\n');
-    % m = 1;
     % Figure 1: Observations and Predictions
     figure(5);
-    clf;
+    clf;  
 
-
-    % Figure 4: State Convergence
-    subplot(2,2,4);
-    plot(n, squeeze(mean(fused_estimates(1, :, 1, :), 4)), 'r-', 'LineWidth', 1.5);
-    hold on;
-    plot(n, squeeze(mean(fused_estimates(2, :, 1, :), 4)), 'g-', 'LineWidth', 1.5);
-    plot(n, squeeze(mean(fused_estimates(3, :, 1, :), 4)), 'c-', 'LineWidth', 1.5);
-    plot(n, w(1)*ones(size(n)), 'r--', 'LineWidth', 1);
-    plot(n, w(2)*ones(size(n)), 'g--', 'LineWidth', 1);
-    plot(n, w(3)*ones(size(n)), 'c--', 'LineWidth', 1);
-    xlabel('Time Step');
-    ylabel('State Estimates');
-    title(sprintf('State Convergence (Agent 1) - Monte-Carlo'));
-    legend('x_1 estimate', 'x_2 estimate', 'x_3 estimate', 'x_1 true', 'x_2 true', 'x_3 true', 'Location', 'best');
-    grid on;
-
-    % Figure 5: State Individual vs Fused Estimation Errors (firsts 4 agents)
-    figure(6);
-    clf;
     subplot(2,2,1);
-    plot(n, mean(state_errors_individual(:, 1, :), 3), 'r--', 'LineWidth', 1);
+    plot(n, mean(state_errors_individual(:, choose_agents_to_plot(1), :), 3), 'r--', 'LineWidth', 1.5);
     hold on;
-    plot(n, mean(state_errors_fused(:, 1, :), 3), 'r-.', 'LineWidth', 2);
-    plot(n, mean(state_errors_individual(:, 2, :), 3), 'g--', 'LineWidth', 1);
-    plot(n, mean(state_errors_fused(:, 2, :), 3), 'g-.', 'LineWidth', 2);
-    plot(n, mean(state_errors_individual(:, 3, :), 3), 'c--', 'LineWidth', 1);
-    plot(n, mean(state_errors_fused(:, 3, :), 3), 'c-.', 'LineWidth', 2);
-    plot(n, mean(state_errors_individual(:, 4, :), 3), 'm--', 'LineWidth', 1);
-    plot(n, mean(state_errors_fused(:, 4, :), 3), 'm-.', 'LineWidth', 2);
+    plot(n, mean(state_errors_fused(:, choose_agents_to_plot(1), :), 3), 'r-.', 'LineWidth', 2);
+    plot(n, mean(state_errors_individual(:, choose_agents_to_plot(2), :), 3), 'g--', 'LineWidth', 1.5);
+    plot(n, mean(state_errors_fused(:, choose_agents_to_plot(2), :), 3), 'g-.', 'LineWidth', 2);
+    plot(n, mean(state_errors_individual(:, choose_agents_to_plot(3), :), 3), 'c--', 'LineWidth', 1.5);
+    plot(n, mean(state_errors_fused(:, choose_agents_to_plot(3), :), 3), 'c-.', 'LineWidth', 2);
+    plot(n, mean(state_errors_individual(:, choose_agents_to_plot(4), :), 3), 'm--', 'LineWidth', 1.5);
+    plot(n, mean(state_errors_fused(:, choose_agents_to_plot(4), :), 3), 'm-.', 'LineWidth', 2);
     xlabel('Time Step');
-    ylabel('State Estimation Error');
-    title(sprintf('Individual vs Fused State Errors (first 4 agents) - Monte-Carlo'));
-    legend('Agent 1 Individual', 'Agent 1 Fused', 'Agent 2 Individual', 'Agent 2 Fused', 'Agent 3 Individual', 'Agent 3 Fused', 'Agent 4 Individual', 'Agent 4 Fused', 'Location', 'best');
+    ylabel('RMSD');
+    title(sprintf('Individual vs Fused State Errors - Monte-Carlo (%d realizations)', M));
+    leg = cell(1, 2*length(choose_agents_to_plot));
+        for a = 1:2*length(choose_agents_to_plot)
+            if mod(a,2) == 0
+                leg{a} = sprintf('Agent %d Fused', choose_agents_to_plot(a/2));
+            else
+                leg{a} = sprintf('Agent %d Individual', choose_agents_to_plot((a+1)/2));
+            end
+        end
+    legend(leg{:}, 'Location', 'best');
     grid on;
-
-    % subplot(2,2,1);
-    % for a = 1:Na
-    %     plot(n, state_errors_individual(:, a), '--', 'LineWidth', 1);
-    %     hold on;
-    % end
-    % for a = 1:Na
-    %     plot(n, state_errors_fused(:, a), '-.', 'LineWidth', 2);
-    % end
-    % xlabel('Time Step');
-    % ylabel('State Estimation Error');
-    % title('All Agents: Individual vs Fused Errors');
-    % legend('Ind 1', 'Ind 2', 'Ind 3', 'Ind 4', 'Fused 1', 'Fused 2', 'Fused 3', 'Fused 4', 'Location', 'best');
-    % grid on;
 
     % Figure 5: State Individual vs Fused Estimation Errors (firsts 4 agents) in dB
     subplot(2,2,2);
-    plot(n, 10*log10(mean(state_errors_individual(:, 1, :), 3)), 'r-.', 'LineWidth', 1);
+    plot(n, 20*log10(mean(state_errors_individual(:, choose_agents_to_plot(1), :), 3)), 'r-.', 'LineWidth', 1.5);
     hold on;
-    plot(n, 10*log10(mean(state_errors_fused(:, 1, :), 3)), 'r-', 'LineWidth', 2);
-    plot(n, 10*log10(mean(state_errors_individual(:, 2, :), 3)), 'g-.', 'LineWidth', 1);
-    plot(n, 10*log10(mean(state_errors_fused(:, 2, :), 3)), 'g-', 'LineWidth', 2);
-    plot(n, 10*log10(mean(state_errors_individual(:, 3, :), 3)), 'c-.', 'LineWidth', 1);
-    plot(n, 10*log10(mean(state_errors_fused(:, 3, :), 3)), 'c-', 'LineWidth', 2);
-    plot(n, 10*log10(mean(state_errors_individual(:, 4, :), 3)), 'm-.', 'LineWidth', 1);
-    plot(n, 10*log10(mean(state_errors_fused(:, 4, :), 3)), 'm-', 'LineWidth', 2);
+    plot(n, 20*log10(mean(state_errors_fused(:, choose_agents_to_plot(1), :), 3)), 'r-', 'LineWidth', 2);
+    plot(n, 20*log10(mean(state_errors_individual(:, choose_agents_to_plot(2), :), 3)), 'g-.', 'LineWidth', 1.5);
+    plot(n, 20*log10(mean(state_errors_fused(:, choose_agents_to_plot(2), :), 3)), 'g-', 'LineWidth', 2);
+    plot(n, 20*log10(mean(state_errors_individual(:, choose_agents_to_plot(3), :), 3)), 'c-.', 'LineWidth', 1.5);
+    plot(n, 20*log10(mean(state_errors_fused(:, choose_agents_to_plot(3), :), 3)), 'c-', 'LineWidth', 2);
+    plot(n, 20*log10(mean(state_errors_individual(:, choose_agents_to_plot(4), :), 3)), 'm-.', 'LineWidth', 1.5);
+    plot(n, 20*log10(mean(state_errors_fused(:, choose_agents_to_plot(4), :), 3)), 'm-', 'LineWidth', 2);
     xlabel('Time Step');
-    ylabel('State Estimation Error');
-    title(sprintf('Individual vs Fused State Errors [dB] (first 4 agents) - Monte-Carlo'));
-    legend('Agent 1 Individual', 'Agent 1 Fused', 'Agent 2 Individual', 'Agent 2 Fused', 'Agent 3 Individual', 'Agent 3 Fused', 'Agent 4 Individual', 'Agent 4 Fused', 'Location', 'best');
+    ylabel('MSD [dB]');
+    title(sprintf('Individual vs Fused State Errors [dB] - Monte-Carlo (%d realizations)', M));
+    leg = cell(1, 2*length(choose_agents_to_plot));
+        for a = 1:2*length(choose_agents_to_plot)
+            if mod(a,2) == 0
+                leg{a} = sprintf('Agent %d Fused', choose_agents_to_plot(a/2));
+            else
+                leg{a} = sprintf('Agent %d Individual', choose_agents_to_plot((a+1)/2));
+            end
+        end
+    legend(leg{:}, 'Location', 'best');
     grid on;
 
 
@@ -792,15 +856,19 @@ if M>1
     %     plot(n, prediction_errors(:, a), 'LineWidth', 1.5);
     %     hold on;
     % end
-    plot(n, mean(prediction_errors(:, 1, :), 3), 'r-', 'LineWidth', 1.5);
+    plot(n, mean(prediction_errors(:, choose_agents_to_plot(1), :), 3), 'r-', 'LineWidth', 1.5);
     hold on;
-    plot(n, mean(prediction_errors(:, 3, :), 3), 'c-', 'LineWidth', 1.5);
-    plot(n, mean(prediction_errors(:, 4, :), 3), 'm-', 'LineWidth', 1.5);
-    plot(n, mean(prediction_errors(:, 2, :), 3), 'g-', 'LineWidth', 1.5);
+    plot(n, mean(prediction_errors(:, choose_agents_to_plot(2), :), 3), 'g-', 'LineWidth', 1.5);
+    plot(n, mean(prediction_errors(:, choose_agents_to_plot(3), :), 3), 'c-', 'LineWidth', 1.5);
+    plot(n, mean(prediction_errors(:, choose_agents_to_plot(4), :), 3), 'm-', 'LineWidth', 1.5);
     xlabel('Time Step');
-    ylabel('Prediction Error');
-    title(sprintf('Prediction Errors by Agent (first 4 agents) - Monte-Carlo'));
-    legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'Location', 'best');
+    ylabel('RMSE');
+    title(sprintf('Prediction Errors by Agent - Monte-Carlo (%d realizations)', M));
+    leg = cell(1, length(choose_agents_to_plot));
+    for a = 1:length(choose_agents_to_plot)
+        leg{a} = sprintf('Agent %d', choose_agents_to_plot(a));
+    end
+    legend(leg{:}, 'Location', 'best');
     grid on;
 
     % Figure 5: Prediction Errors [dB]
@@ -809,66 +877,55 @@ if M>1
     %     plot(n, prediction_errors(:, a), 'LineWidth', 1.5);
     %     hold on;
     % end
-    plot(n, 10*log10(mean(prediction_errors(:, 1, :), 3)), 'r-', 'LineWidth', 1.5);
+    plot(n, 10*log10(mean(prediction_errors(:, choose_agents_to_plot(1), :), 3)), 'r-', 'LineWidth', 1.5);
     hold on;
-    plot(n, 10*log10(mean(prediction_errors(:, 2, :), 3)), 'g-', 'LineWidth', 1.5);
-    plot(n, 10*log10(mean(prediction_errors(:, 3, :), 3)), 'c-', 'LineWidth', 1.5);
-    plot(n, 10*log10(mean(prediction_errors(:, 4, :), 3)), 'm-', 'LineWidth', 1.5);
+    plot(n, 10*log10(mean(prediction_errors(:, choose_agents_to_plot(2), :), 3)), 'g-', 'LineWidth', 1.5);
+    plot(n, 10*log10(mean(prediction_errors(:, choose_agents_to_plot(3), :), 3)), 'c-', 'LineWidth', 1.5);
+    plot(n, 10*log10(mean(prediction_errors(:, choose_agents_to_plot(4), :), 3)), 'm-', 'LineWidth', 1.5);
     xlabel('Time Step');
-    ylabel('Prediction Error');
-    title(sprintf('Prediction Errors by Agent [dB] (first 4 agents) - Monte-Carlo'));
-    legend('Agent 1', 'Agent 2', 'Agent 3', 'Agent 4', 'Location', 'best');
+    ylabel('RMSE [dB]');
+    title(sprintf('Prediction Errors by Agent [dB] - Monte-Carlo (%d realizations)', M));
+    leg = cell(1, length(choose_agents_to_plot));
+    for a = 1:length(choose_agents_to_plot)
+        leg{a} = sprintf('Agent %d', choose_agents_to_plot(a));
+    end
+    legend(leg{:}, 'Location', 'best');
     grid on;
 
     % Figure 6: Final State Estimates
-    figure(7);
+    figure(6);
     clf;
+
     title('Final State Estimates - Monte-Carlo');
     subplot(1,2,1);
-    Na_to_show = min(Na, 8);
-    agents_idx = 1:Na_to_show;
-    individual_final = mean(state_errors_individual(end, :, :), 3);
-    fused_final = mean(state_errors_fused(end, :, :), 3);
+    agents_idx = 1:length(choose_agents_to_plot2);
+    individual_final = mean(state_errors_individual(end, choose_agents_to_plot2, :), 3);
+    fused_final = mean(state_errors_fused(end, choose_agents_to_plot2, :), 3);
     bar_width = 0.35;
-
-    bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+    bar(agents_idx - bar_width/2, individual_final, bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
     hold on;
-    bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
-    if Na > Na_to_show
-        xticklabels(1:Na_to_show);
-    end
+    bar(agents_idx + bar_width/2, fused_final, bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+    xticklabels(choose_agents_to_plot2);
     xticks(agents_idx);
     xlabel('Agent');
     ylabel('Final RMSD');
-    if Na > Na_to_show
-        title(sprintf('Final Performance Comparison (RMSD) (first %d agents)', Na_to_show));
-    else
-        title(sprintf('Final Performance Comparison (RMSD) (all %d agents)', Na));
-    end
+    title(sprintf('Final RMSD - Monte-Carlo (%d realizations)', M));
     legend('Individual', 'Fused', 'Location', 'best');
     grid on;
 
     % Figure 6: Mean State Estimates
     subplot(1,2,2);
-    Na_to_show = min(Na, 8);
-    agents_idx = 1:Na_to_show;
-    individual_final = sqrt(mean(mean(state_errors_individual(:, :, :), 3).^2, 1));
-    fused_final = sqrt(mean(mean(state_errors_fused(:, :, :), 3).^2, 1));
+    individual_final = sqrt(mean(mean(state_errors_individual(:, choose_agents_to_plot2, :), 3).^2, 1));
+    fused_final = sqrt(mean(mean(state_errors_fused(:, choose_agents_to_plot2, :), 3).^2, 1));
     bar_width = 0.35;
-    bar(agents_idx - bar_width/2, individual_final(1:Na_to_show), bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
+    bar(agents_idx - bar_width/2, individual_final, bar_width, 'FaceColor', 'r', 'FaceAlpha', 0.7);
     hold on;
-    bar(agents_idx + bar_width/2, fused_final(1:Na_to_show), bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
-    if Na > Na_to_show
-        xticklabels(1:Na_to_show);
-    end
+    bar(agents_idx + bar_width/2, fused_final, bar_width, 'FaceColor', 'b', 'FaceAlpha', 0.7);
+    xticklabels(choose_agents_to_plot2);
     xticks(agents_idx);
     xlabel('Agent');
-    ylabel('Overtime Mean RMSD');
-    if Na > Na_to_show
-        title(sprintf('Mean Performance Comparison (RMSD) (first %d agents)', Na_to_show));
-    else
-        title(sprintf('Mean Performance Comparison (RMSD) (all %d agents)', Na));
-    end
+    ylabel('Temporal Mean RMSD');
+    title(sprintf('Temporal Mean Performance Comparison (RMSD) - Monte-Carlo (%d realizations) ', M));
     legend('Individual', 'Fused', 'Location', 'best');
     grid on;
 
@@ -906,21 +963,26 @@ clf;
 final_msd_vec =  mean(mean(state_errors_fused, 3),2);
 plot(n, 20*log10(final_msd_vec), 'LineWidth', 1.5);
 xlabel('Time Step');
-ylabel('Final MSD');
+ylabel('MSD [dB]');
+tech_name = class(agent.agent_technique);
+fusion_name = class(agent.fusion_technique);
 if M > 1
-    title(sprintf('Final MSD - Monte-Carlo: %d realizations', M));
+    title(sprintf('MSD of the network - Monte-Carlo: %d runs - %s - %s', M, strrep(tech_name, '_', ' '), strrep(fusion_name, '_', ' ')));
 else
-    title('Final MSD');
+    title('MSD of the network - %s - %s', strrep(tech_name, '_', ' '), strrep(fusion_name, '_', ' '));
 end
 grid on
 
 
 fprintf('\n=====================================================\n');
 fprintf('Simulation validated multi-agent social learning with:\n');
-% fprintf('  - Constant observation model H = [%s]\n', num2str(H(t,:)));
 fprintf('  - True state w = [%s]\n', num2str(w'));
-fprintf('  - Agent technique:  %s\n', class(agents{1}.agent_technique));
-fprintf('  - Distributed fusion: %s\n', class(agents{1}.fusion_technique));
+fprintf('  - Agent technique:  %s\n', class(agent.agent_technique));
+fprintf('  - Distributed fusion: %s\n', class(agent.fusion_technique));
 fprintf('  - %d agents with network topology\n', Na);
 
 diary off;
+
+save_workspace_name = sprintf('results_%s_%s_N%d_M%d.mat', tech_name, fusion_name, N, M);
+
+% save('results_caio_kf_gaaf_N500_M50.mat', 'y_hat_history', 'y', 'd'all, 'P_trace_history', 'individual_estimates', 'fused_estimates', 'w', 'agent', 'N', 'Na', 'M', 'x_dim', 'y_dim');
