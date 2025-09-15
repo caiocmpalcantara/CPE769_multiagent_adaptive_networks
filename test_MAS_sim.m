@@ -168,13 +168,13 @@ switch net_topology
         u_sd = sqrt(trace_I_M/x_dim);
 
         x = zeros(x_dim,N,Na);
+        u = zeros(x_dim,N,Na); % Kalman => H
         rng(8988466)
         for a = 1:Na
             x(:,:,a) = u_sd(a) .* randn(3,N); % excitation
-        end
-        u = zeros(x_dim,N,Na); % Kalman => H
-        for i = 2:N
-            u(:,i,a) = rk * u(:,i-1,a)  + sqrt(1-rk^2) * x(:,i,a);
+            for i = 2:N
+                u(:,i,a) = rk * u(:,i-1,a)  + sqrt(1-rk^2) * x(:,i,a);
+            end
         end
 
         d = zeros(1,Na,N,M);
@@ -969,7 +969,7 @@ fusion_name = class(agent.fusion_technique);
 if M > 1
     title(sprintf('MSD of the network - Monte-Carlo: %d runs - %s - %s', M, strrep(tech_name, '_', ' '), strrep(fusion_name, '_', ' ')));
 else
-    title('MSD of the network - %s - %s', strrep(tech_name, '_', ' '), strrep(fusion_name, '_', ' '));
+    title(sprintf('MSD of the network - %s - %s', strrep(tech_name, '_', ' '), strrep(fusion_name, '_', ' ')));
 end
 grid on
 
